@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>角色强度榜 - 动态自定义版</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #fff;
+  }
+  .container { max-width: 1700px; margin: 0 auto; }
+
+  /* ========== 标题栏 ========== */
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .title-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .app-title {
+    font-size: 1.6rem; font-weight: 900;
+    background: linear-gradient(90deg, #e94560, #f39c12, #f1c40f, #2ecc71, #3498db, #9b59b6);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .title-edit {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    padding: 6px 14px;
+    font-size: 1rem;
+    border-radius: 8px;
+    width: 380px;
+    max-width: 50vw;
+  }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; border: none;
+    font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 5px; color: #fff;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+  .btn-primary { background: linear-gradient(135deg, #3498db, #2980b9); }
+  .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+  .btn-warn { background: linear-gradient(135deg, #f39c12, #d68910); }
+  .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+  .btn-ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); }
+  .btn-ghost:hover { background: rgba(255,255,255,0.12); }
+  .btn-sm { padding: 4px 8px; font-size: 0.75rem; border-radius: 6px; }
+
+  /* ========== 上传区 ========== */
+  .upload-section {
+    background: rgba(255,255,255,0.04);
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+    transition: all 0.3s;
+  }
+  .upload-section.drag-over {
+    border-color: #3498db; background: rgba(52,152,219,0.1);
+    box-shadow: 0 0 30px rgba(52,152,219,0.2);
+  }
+  .upload-title { font-size: 1rem; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .upload-title::before { content: '📁'; font-size: 1.2rem; }
+  .upload-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .hidden-input { display: none; }
+  .upload-hint { color: #888; font-size: 0.8rem; line-height: 1.6; }
+  .upload-hint b { color: #f1c40f; }
+
+  /* ========== 强度榜表格 ========== */
+  .table-wrap {
+    background: rgba(255,255,255,0.03);
+    border-radius: 14px; overflow: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .ranking-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 1700px; /* 至少容纳 6 职业列（每列 260px）+ T 级别列，保证 2 张角色卡横向并排 */
+  }
+
+  /* 纵向级别列 */
+  .tier-header {
+    width: 200px;
+    background: rgba(0,0,0,0.25);
+    vertical-align: middle;
+  }
+  .tier-cell {
+    position: relative;
+    padding: 15px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    border-right: 2px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.2);
+    vertical-align: top;
+  }
+  tr:last-child .tier-cell { border-bottom: none; }
+
+  .tier-label-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding-right: 4px;
+  }
+  .tier-name-input {
+    background: transparent; border: 1px dashed transparent;
+    color: inherit; font-size: 1.4rem; font-weight: 900;
+    text-align: center; padding: 4px 6px; border-radius: 6px; width: 100%;
+    outline: none; transition: all 0.2s;
+  }
+  .tier-name-input:hover, .tier-name-input:focus {
+    border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06);
+  }
+  .tier-actions { display: flex; gap: 4px; justify-content: center; opacity: 0.75; }
+  .tier-cell:hover .tier-actions { opacity: 1; }
+  .icon-btn {
+    width: 24px; height: 24px; border-radius: 6px; border: none;
+    background: rgba(255,255,255,0.08); color: #fff; cursor: pointer;
+    font-size: 0.7rem; display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.08); }
+  .icon-btn.danger:hover { background: #e74c3c; }
+  .icon-btn.success:hover { background: #2ecc71; }
+  .icon-btn.warn:hover { background: #f39c12; color: #222; }
+  .icon-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+  .add-tier-row td {
+    padding: 12px; text-align: center; background: rgba(255,255,255,0.02);
+    border-top: 1px dashed rgba(255,255,255,0.15);
+  }
+
+  /* 横向职业分类表头 */
+  .class-header-cell {
+    padding: 10px; text-align: center;
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    font-weight: 700; color: #111; position: relative;
+    min-width: 260px; /* 保证每列至少容纳 2 张 100px 卡片并排（含 gap/padding） */
+  }
+  .class-input {
+    background: rgba(255,255,255,0.4); border: 1px dashed transparent;
+    color: #111; font-weight: 700; text-align: center;
+    padding: 3px 6px; border-radius: 4px; font-size: 1rem;
+    outline: none; width: 100%;
+  }
+  .class-input:hover, .class-input:focus { border-color: rgba(0,0,0,0.4); background: rgba(255,255,255,0.6); }
+  .class-head-actions {
+    display: flex; gap: 4px; justify-content: center; margin-top: 6px; opacity: 0.85;
+  }
+  .class-header-cell:hover .class-head-actions { opacity: 1; }
+  .color-picker {
+    width: 24px; height: 24px; padding: 0; border: 2px solid #fff; border-radius: 50%;
+    cursor: pointer; background: none;
+  }
+  .class-corner {
+    background: rgba(0,0,0,0.35);
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    border-right: 2px solid rgba(255,255,255,0.15);
+    vertical-align: middle; text-align: center; font-size: 0.8rem; color: #888;
+    padding: 14px 10px;
+  }
+  .corner-wrap {
+    display: flex; flex-direction: column; align-items: stretch; gap: 14px;
+    width: 100%;
+  }
+  .corner-row { position: relative; width: 100%; display: flex; align-items: center; gap: 4px; }
+  .corner-tier-input {
+    flex: 1;
+    background: transparent; border: 1.5px dashed rgba(255,255,255,0.28);
+    color: #fff; font-size: 1.3rem; font-weight: 700; text-align: center;
+    padding: 2px 22px 2px 4px; border-radius: 5px; cursor: text; outline: none;
+    transition: all 0.2s; min-width: 0;
+  }
+  .corner-tier-input:hover { border-color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.07); }
+  .corner-tier-input:focus { border-color: #fff; background: rgba(255,255,255,0.12); box-shadow: 0 0 0 3px rgba(255,255,255,0.15); }
+  .corner-tier-input::placeholder { color: rgba(255,255,255,0.45); font-weight: 400; }
+  .corner-class-input {
+    flex: 1;
+    background: transparent; border: 1.5px dashed rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85); font-size: 1rem; font-weight: 600; text-align: center;
+    padding: 2px 22px 2px 4px; border-radius: 5px; cursor: text; outline: none;
+    transition: all 0.2s; min-width: 0;
+  }
+  .corner-class-input:hover { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.05); }
+  .corner-class-input:focus { border-color: #fff; background: rgba(255,255,255,0.1); box-shadow: 0 0 0 3px rgba(255,255,255,0.12); }
+  .corner-class-input::placeholder { color: rgba(255,255,255,0.35); font-weight: 400; }
+  .corner-arrow { white-space: nowrap; color: rgba(255,255,255,0.7); user-select: none; }
+  .corner-arrow.tier { font-size: 0.9rem; }
+  .corner-arrow.cls  { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+  .corner-edit {
+    position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+    font-size: 0.8rem; opacity: 0.5; cursor: pointer; user-select: none;
+  }
+  .corner-row:hover .corner-edit { opacity: 1; color: #fff; }
+  .add-class-cell {
+    padding: 10px; background: rgba(255,255,255,0.04); text-align: center;
+    border-bottom: 2px solid rgba(255,255,255,0.15);
+    vertical-align: middle;
+  }
+
+  /* 格子 */
+  .class-cell {
+    padding: 14px 10px;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.25s;
+    min-width: 260px; /* 与表头对应，保证角色卡片横向并排布局正确 */
+  }
+  tr:last-child .class-cell { border-bottom: none; }
+  .class-cell.drop-target {
+    background: rgba(46,204,113,0.12);
+    box-shadow: inset 0 0 20px rgba(46,204,113,0.25);
+  }
+  .char-grid {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: flex-start; align-items: flex-start;
+    min-height: 70px;
+    min-width: 240px; /* 保证一格内至少 2 张 100px 卡 + 10px gap 能横向并列不换行 */
+  }
+  /* 角色卡片 */
+  .char-card {
+    width: 100px; border-radius: 8px; overflow: hidden;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    transition: all 0.25s; position: relative; cursor: default;
+  }
+  .char-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    border-color: rgba(255,255,255,0.35);
+  }
+  .char-card.drop-target {
+    border-color: #2ecc71 !important;
+    box-shadow: 0 0 18px rgba(46,204,113,0.5) !important;
+    transform: scale(1.05);
+  }
+  .char-avatar {
+    width: 100px; height: 120px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; font-weight: 900; color: #fff;
+    background: linear-gradient(160deg, #4a5568, #2d3748);
+    background-size: cover; background-position: center;
+    position: relative; overflow: hidden;
+  }
+  .char-avatar.custom { font-size: 0; background-position: center top; /* 有图时顶部对齐，避免人物头像顶部被裁 */ }
+  .char-avatar::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.5) 100%);
+    pointer-events: none;
+  }
+  .char-del {
+    position: absolute; top: 4px; right: 4px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(231,76,60,0.9);
+    color: #fff; font-size: 0.7rem;
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 3; border: none;
+  }
+  .char-card:hover .char-del { display: flex; }
+  .char-del:hover { background: #c0392b; transform: scale(1.15); }
+  .char-name-input {
+    width: 100%; padding: 6px 4px; text-align: center;
+    font-size: 0.78rem; font-weight: 600; color: #fff;
+    background: rgba(0,0,0,0.35); border: 1px dashed transparent;
+    border-radius: 0; outline: none;
+  }
+  .char-name-input:hover, .char-name-input:focus {
+    border-color: rgba(255,255,255,0.3); background: rgba(0,0,0,0.5);
+  }
+
+  /* ========== 图片库 ========== */
+  .gallery-section {
+    margin-top: 25px; background: rgba(255,255,255,0.04);
+    border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); padding: 18px;
+  }
+  .gallery-header {
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+  }
+  .gallery-title { font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .gallery-title::before { content: '🖼️'; font-size: 1.3rem; }
+  .gallery-count {
+    background: rgba(52,152,219,0.3); color: #74c0fc;
+    padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  }
+  .gallery-grid {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    min-height: 60px;
+  }
+  .gallery-grid:empty::before {
+    content: '暂无图片 → 请在上方上传图片文件夹或图片文件 → 然后按住图片拖到强度榜任意格子中';
+    grid-column: 1 / -1; text-align: center; color: #666;
+    padding: 28px 20px; font-size: 0.9rem;
+    border: 2px dashed rgba(255,255,255,0.1); border-radius: 10px;
+  }
+  .gallery-item {
+    position: relative; aspect-ratio: 3/4;
+    border-radius: 8px; overflow: hidden;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    cursor: grab; transition: all 0.2s;
+  }
+  .gallery-item:hover {
+    transform: translateY(-3px) scale(1.03);
+    border-color: #3498db; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  }
+  .gallery-item:active { cursor: grabbing; }
+  .gallery-item.dragging { opacity: 0.4; transform: scale(0.9); }
+
+  /* 角色卡拖拽：头像区域为拖拽把手 */
+  .char-avatar { cursor: grab; }
+  .char-card:active .char-avatar { cursor: grabbing; }
+  .char-card.dragging { opacity: 0.35; transform: scale(0.92) rotate(-1.5deg); }
+  .char-card.drop-target, .class-cell.drop-target { outline: 2px dashed #2ecc71; outline-offset: -4px; background: rgba(46,204,113,0.08) !important; }
+  .gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .gallery-item .img-name {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 4px 6px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    font-size: 0.65rem; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: none;
+  }
+  .gallery-item .img-del {
+    position: absolute; top: 4px; right: 4px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: rgba(231,76,60,0.9); color: #fff; font-size: 0.7rem;
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 2; border: none;
+  }
+  .gallery-item:hover .img-del { display: flex; }
+  .gallery-item .img-del:hover { background: #c0392b; transform: scale(1.15); }
+
+  /* ========== 提示与 Toast ========== */
+  .tooltip {
+    position: fixed; background: rgba(20, 20, 40, 0.98);
+    border: 1px solid rgba(255,255,255,0.25); border-radius: 10px;
+    padding: 10px 14px; pointer-events: none; opacity: 0;
+    transition: opacity 0.2s; z-index: 9999; font-size: 0.85rem;
+    max-width: 240px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  }
+  .tooltip.show { opacity: 1; }
+  .toast {
+    position: fixed; bottom: 30px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: rgba(20,20,40,0.95); color: #fff;
+    padding: 12px 24px; border-radius: 25px; font-size: 0.9rem;
+    z-index: 10000; border: 1px solid rgba(255,255,255,0.2);
+    opacity: 0; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: #2ecc71; }
+  .toast.error { border-color: #e74c3c; }
+
+  .footer {
+    text-align: center; color: #666; font-size: 0.78rem;
+    margin-top: 25px; padding: 12px; line-height: 1.6;
+  }
+
+  @media (max-width: 900px) {
+    .app-title { font-size: 1.2rem; }
+    .title-edit { width: 100%; max-width: 100%; }
+    .char-card { width: 80px; }
+    .char-avatar { width: 80px; height: 96px; font-size: 1.8rem; }
+    .char-name-input { font-size: 0.7rem; }
+    .tier-name-input { font-size: 1rem; }
+    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px; }
+  }
+  @media (max-width: 600px) {
+    .char-card { width: 62px; }
+    .char-avatar { width: 62px; height: 75px; font-size: 1.4rem; }
+    .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 顶部栏 -->
+  <div class="toolbar">
+    <div class="title-group">
+      <div class="app-title">⚔️ 角色强度榜</div>
+      <input type="text" class="title-edit" id="titleInput" value="我的自定义强度榜" placeholder="榜单一览标题（例如：XX游戏角色强度榜）">
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-success btn-sm" onclick="exportRankingImage()">🖼️ 导出图片</button>
+      <button class="btn btn-primary btn-sm" onclick="exportJson()">📤 导出数据</button>
+      <button class="btn btn-warn btn-sm" onclick="document.getElementById('importFile').click()">📥 导入数据</button>
+      <input type="file" id="importFile" class="hidden-input" accept="application/json">
+      <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑️ 重置全部</button>
+    </div>
+  </div>
+
+  <!-- 上传区 -->
+  <div class="upload-section" id="uploadSection">
+    <div class="upload-title">角色图片上传</div>
+    <div class="upload-row">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('folderInput').click()">📂 选择图片文件夹</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('filesInput').click()">🖼️ 选择图片文件</button>
+      <button class="btn btn-danger btn-sm" onclick="clearGallery()">🗑️ 清空图片库</button>
+      <input type="file" id="folderInput" class="hidden-input" webkitdirectory multiple accept="image/*">
+      <input type="file" id="filesInput" class="hidden-input" multiple accept="image/*">
+      <div class="upload-hint">
+        💡 <b>操作</b>：①上传图片 → 下方出现图库 → ②<b>按住图片拖到表格格子</b>里创建角色卡片；③直接双击卡片名称修改；也可以把<b>外部文件直接拖到表格格子</b>里。<br>
+        ⚙️ 级别(T)和职业(列)都可<b>直接点击文字重命名</b>，旁边有⬆⬇移动 / 🎨改色 / ✕删除按钮；也可拖图覆盖已有角色的头像。
+      </div>
+    </div>
+  </div>
+
+  <!-- 强度榜 -->
+  <div class="table-wrap">
+    <table class="ranking-table" id="rankingTable"></table>
+  </div>
+
+  <!-- 图片库 -->
+  <div class="gallery-section">
+    <div class="gallery-header">
+      <div class="gallery-title">角色图片库 <span class="gallery-count" id="galleryCount">0 张</span></div>
+      <div style="color:#888;font-size:0.8rem;">按住图片拖到强度榜任意格子 · 松手即新建角色卡片</div>
+    </div>
+    <div class="gallery-grid" id="galleryGrid"></div>
+  </div>
+
+  <div class="footer">
+    本地版动态强度榜 · 数据和图片均保存在当前浏览器 localStorage · 可使用顶部「导出数据」备份为 JSON 文件
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  动态强度榜 - 核心状态与唯一数据入口
+// ============================================================
+const STORAGE_KEY = 'dynamic_ranking_state_v2';
+const DEFAULT_COLORS = [
+  ['#2ecc71','#27ae60'], ['#f1c40f','#f39c12'], ['#9b59b6','#8e44ad'],
+  ['#3498db','#2980b9'], ['#e74c3c','#c0392b'], ['#e67e22','#d35400'],
+  ['#1abc9c','#16a085'], ['#e91e63','#c2185b'], ['#00bcd4','#0097a7']
+];
+const DEFAULT_STATE = () => ({
+  title: '我的自定义强度榜',
+  cornerTierLabel: '级别',  // 左上角纵轴（T方向）可编辑名
+  cornerClassLabel: '职业', // 左上角横轴（列方向）可编辑名
+  tiers: [
+    { id: uid('t'), name: 'T0' },
+    { id: uid('t'), name: 'T0.5' },
+    { id: uid('t'), name: 'T1' },
+    { id: uid('t'), name: 'T1.5' },
+    { id: uid('t'), name: 'T2' }
+  ],
+  classes: [
+    { id: uid('c'), name: '战术员', color: '#2ecc71' },
+    { id: uid('c'), name: '盾卫',   color: '#f1c40f' },
+    { id: uid('c'), name: '刀锋',   color: '#9b59b6' },
+    { id: uid('c'), name: '异能者', color: '#3498db' },
+    { id: uid('c'), name: '狙击手', color: '#e74c3c' },
+    { id: uid('c'), name: '突击手', color: '#e67e22' }
+  ],
+  cells: {},   // key = "tierId|classId" => [ {id, name, image} ]
+  gallery: []  // [ {id, name, dataUrl} ]
+});
+
+let state = loadState();
+// 如果是第一次打开（完全空的tiers/classes），初始化默认
+if (state.tiers.length === 0 && state.classes.length === 0) {
+  const d = DEFAULT_STATE(); state.tiers = d.tiers; state.classes = d.classes;
+}
+
+function uid(prefix='x') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function cellKey(tierId, classId) { return tierId + '|' + classId; }
+function getCell(tierId, classId) {
+  const k = cellKey(tierId, classId);
+  if (!state.cells[k]) state.cells[k] = [];
+  return state.cells[k];
+}
+
+// ============================================================
+//  持久化 & 导入导出
+//  存储策略：localStorage 仅保存榜单结构 + 角色头像，
+//  图库（gallery）只保留在当前会话内存中，避免 5MB 配额瞬间爆掉。
+//  需要长期完整备份请使用【导出 JSON】功能。
+// ============================================================
+const MAX_STORAGE_BYTES = 4.2 * 1024 * 1024; // localStorage 硬上限约 5MB，保留 0.8MB 冗余
+
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (!s) return DEFAULT_STATE();
+    const obj = JSON.parse(s);
+    const base = DEFAULT_STATE();
+    // 兼容旧版本：如果 localStorage 里带了 gallery 数据就保留到内存里，但不再写回
+    return Object.assign(base, obj, { gallery: obj.gallery || base.gallery });
+  } catch(e) { console.warn(e); return DEFAULT_STATE(); }
+}
+let saveTimer = null;
+function saveState() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    // 只存榜单结构（title/tiers/classes/cells），图库仅内存
+    const toStore = {
+      title: state.title,
+      tiers: state.tiers,
+      classes: state.classes,
+      cells: state.cells,
+      gallery: [], // 图库不写入 localStorage
+    };
+    try {
+      const json = JSON.stringify(toStore);
+      // UTF-16 → 字节数估算：每个代码单元 2 字节
+      const estBytes = json.length * 2;
+      if (estBytes > MAX_STORAGE_BYTES) {
+        showToast(
+          `角色头像太大已接近存储上限 (${(estBytes/1024/1024).toFixed(1)}MB)，建议删除不常用角色或导出JSON备份`,
+          'warning'
+        );
+      }
+      localStorage.setItem(STORAGE_KEY, json);
+    } catch(e) {
+      console.warn(e);
+      if (e && (e.name === 'QuotaExceededError' || e.code === 22 ||
+                /quota|storage|allocation|不允许|空间不足/i.test(e.message || ''))) {
+        showToast(
+          '本地存储已满！请【删除部分角色】或点击顶栏【📤导出JSON】完整备份（含图库），再【重置全部】重新导入。',
+          'error'
+        );
+      } else {
+        showToast('保存失败：' + (e.message || e), 'error');
+      }
+    }
+  }, 120);
+}
+function exportJson() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `强度榜_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('已导出 JSON 文件', 'success');
+}
+// ============================================================
+//  导出强度榜为 PNG 图片（Canvas 手绘，零依赖；仅纯内容，不含操作按钮）
+// ============================================================
+async function exportRankingImage() {
+  if (state.tiers.length === 0 || state.classes.length === 0) {
+    showToast('请先添加级别和职业再导出图片', 'error'); return;
+  }
+  showToast('正在生成图片，请稍候...', 'info');
+
+  // ---------- 尺寸常量 ----------
+  const DPR = Math.max(2, Math.min(3, window.devicePixelRatio || 2)); // 2倍屏 高清
+  const PADDING = 48;
+  const TITLE_H = 108;            // 顶部榜单独占高度
+  const TIER_W = 156;             // 左列：级别列宽
+  const HEAD_H = 112;             // 顶行：职业表头高度
+  const CARD_W = 120, CARD_H = 164;
+  const CARD_GAP_X = 12, CARD_GAP_Y = 16;
+  const CARDS_PER_ROW = 3;        // 每格 1 行排3张卡
+  const CELL_PAD = 18;            // 格子内边距
+
+  const tierColors = ['#ff6b6b','#ffa94d','#ffd43b','#a9e34b','#74c0fc','#da77f2','#4dd4ac','#ff8787'];
+  const CELL_W = CELL_PAD*2 + CARDS_PER_ROW*CARD_W + (CARDS_PER_ROW-1)*CARD_GAP_X;
+
+  // ---------- 计算每行（tier）所需高度 ----------
+  const tierHeights = state.tiers.map(tier => {
+    let maxInner = 40; // 最小内容高度，空格子不至于没线
+    state.classes.forEach(cls => {
+      const chars = state.cells[cellKey(tier.id, cls.id)] || [];
+      const rows = Math.max(1, Math.ceil(chars.length / CARDS_PER_ROW));
+      const inner = rows*CARD_H + (rows-1)*CARD_GAP_Y;
+      if (inner > maxInner) maxInner = inner;
+    });
+    return maxInner + CELL_PAD*2;
+  });
+
+  const canvasW = PADDING*2 + TIER_W + state.classes.length*CELL_W;
+  const canvasH = PADDING*2 + TITLE_H + HEAD_H + tierHeights.reduce((a,b)=>a+b,0);
+
+  // ---------- 创建 Canvas ----------
+  const canvas = document.createElement('canvas');
+  canvas.width  = canvasW * DPR;
+  canvas.height = canvasH * DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  // ---------- 工具：圆角路径 ----------
+  function roundRect(x, y, w, h, r) {
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr);
+    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+  }
+  // 颜色工具：hex 转 rgba；亮/暗插值
+  function hexToRgb(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '#888888');
+    return m ? { r:parseInt(m[1],16), g:parseInt(m[2],16), b:parseInt(m[3],16) } : {r:128,g:128,b:128};
+  }
+  function mix(c1, c2, t) {
+    return { r: Math.round(c1.r+(c2.r-c1.r)*t), g: Math.round(c1.g+(c2.g-c1.g)*t), b: Math.round(c1.b+(c2.b-c1.b)*t) };
+  }
+  function rgba(c, a=1) { return `rgba(${c.r},${c.g},${c.b},${a})`; }
+  function shadeDark(hex, p=0.35) { const c=hexToRgb(hex); const b={r:0,g:0,b:0}; return mix(c, b, p); }
+  function shadeLight(hex, p=0.35) { const c=hexToRgb(hex); const w={r:255,g:255,b:255}; return mix(c, w, p); }
+  function loadImg(dataUrl) {
+    return new Promise(resolve => {
+      if (!dataUrl) { resolve(null); return; }
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
+  // ---------- 预加载所有角色头像（避免 drawImage 空白）----------
+  const charLoadTasks = [];
+  const charImgMap = new Map(); // charId → HTMLImageElement | null
+  state.tiers.forEach(tier => {
+    state.classes.forEach(cls => {
+      const chars = state.cells[cellKey(tier.id,cls.id)] || [];
+      chars.forEach(ch => {
+        if (ch.image) {
+          charLoadTasks.push(loadImg(ch.image).then(img => { charImgMap.set(ch.id, img); }));
+        }
+      });
+    });
+  });
+  try { await Promise.all(charLoadTasks); } catch(e) { console.warn(e); }
+
+  // ==============================================================
+  //  1. 背景（页面深色渐变 + 角落光晕）
+  // ==============================================================
+  const bg = ctx.createLinearGradient(0, 0, canvasW, canvasH);
+  bg.addColorStop(0, '#1a1a2e');
+  bg.addColorStop(0.5, '#16213e');
+  bg.addColorStop(1, '#0f3460');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+
+  // 左上角光晕
+  const glow = ctx.createRadialGradient(0, 0, 40, 0, 0, 500);
+  glow.addColorStop(0, 'rgba(120, 119, 198, 0.18)');
+  glow.addColorStop(1, 'rgba(120, 119, 198, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+  // 右下角光晕
+  const glow2 = ctx.createRadialGradient(canvasW, canvasH, 40, canvasW, canvasH, 600);
+  glow2.addColorStop(0, 'rgba(236, 72, 153, 0.12)');
+  glow2.addColorStop(1, 'rgba(236, 72, 153, 0)');
+  ctx.fillStyle = glow2;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+
+  // ==============================================================
+  //  2. 顶部标题
+  // ==============================================================
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 14;
+  ctx.font = '700 46px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
+  ctx.fillText(state.title || '角色强度榜', canvasW/2, PADDING + TITLE_H/2 - 4);
+  ctx.shadowBlur = 0;
+  // 标题底部分隔条
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PADDING, PADDING + TITLE_H - 6);
+  ctx.lineTo(canvasW - PADDING, PADDING + TITLE_H - 6);
+  ctx.stroke();
+
+  // ==============================================================
+  //  3. 坐标基准
+  // ==============================================================
+  const TABLE_X = PADDING;
+  const TABLE_Y = PADDING + TITLE_H;
+  const TABLE_W = TIER_W + state.classes.length*CELL_W;
+  const TABLE_H = HEAD_H + tierHeights.reduce((a,b)=>a+b,0);
+
+  // ==============================================================
+  //  4. 表头（职业名）
+  // ==============================================================
+  // 4.1 左上角角块：级别/职业说明
+  const cornerGrad = ctx.createLinearGradient(TABLE_X, TABLE_Y, TABLE_X+TIER_W, TABLE_Y+HEAD_H);
+  cornerGrad.addColorStop(0, '#2a2a44');
+  cornerGrad.addColorStop(1, '#1f2d4f');
+  ctx.fillStyle = cornerGrad;
+  ctx.fillRect(TABLE_X, TABLE_Y, TIER_W, HEAD_H);
+  // 角字：用户最新指定 —— 上方：职业 ➡（小字，紧邻右侧表头）；下方：级别 ⬇（大字，紧邻下方T级列）
+  const clsLbl = String(state.cornerClassLabel || '职业').trim() || '职业';
+  const tierLbl = String(state.cornerTierLabel || '级别').trim() || '级别';
+  ctx.textAlign = 'center';
+  // 上方：职业（小字 15px 灰色）
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = '500 15px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText(clsLbl + '  ➡', TABLE_X + TIER_W/2, TABLE_Y + HEAD_H/2 - 16);
+  // 下方：级别（大字 22px 白色）
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 22px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText(tierLbl + '  ⬇', TABLE_X + TIER_W/2, TABLE_Y + HEAD_H/2 + 18);
+
+  // 4.2 职业列头（每个带渐变背景 + 颜色色值）
+  state.classes.forEach((cls, ci) => {
+    const x = TABLE_X + TIER_W + ci*CELL_W;
+    const y = TABLE_Y;
+    const cBase = hexToRgb(cls.color || '#888');
+    const cDark = mix(cBase, {r:0,g:0,b:0}, 0.45);
+    const grad = ctx.createLinearGradient(x, y, x, y + HEAD_H);
+    grad.addColorStop(0, rgba(mix(cBase, {r:255,g:255,b:255}, 0.15), 1));
+    grad.addColorStop(1, rgba(cDark, 1));
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, CELL_W, HEAD_H);
+    // 顶部细色带（亮色强调）
+    ctx.fillStyle = rgba(cBase, 1);
+    ctx.fillRect(x, y, CELL_W, 5);
+
+    // 职业名（多行安全：超长省略 → 这里直接用 14px 截断 10字）
+    let text = (cls.name || '').trim();
+    const maxTextPx = CELL_W - 24;
+    ctx.font = '700 22px "PingFang SC","Microsoft YaHei",sans-serif';
+    while (text.length > 2 && ctx.measureText(text + '…').width > maxTextPx) text = text.slice(0, -1);
+    if (text !== (cls.name||'').trim()) text += '…';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 6;
+    ctx.fillText(text, x + CELL_W/2, y + HEAD_H/2);
+    ctx.shadowBlur = 0;
+  });
+
+  // ==============================================================
+  //  5. 行：T级别左列 + 网格 + 卡片
+  // ==============================================================
+  let rowY = TABLE_Y + HEAD_H;
+  state.tiers.forEach((tier, ti) => {
+    const rowH = tierHeights[ti];
+    // 5.1 级别名
+    const tColor = tierColors[ti % tierColors.length];
+    const tCol = hexToRgb(tColor);
+    const tGrad = ctx.createLinearGradient(TABLE_X, rowY, TABLE_X+TIER_W, rowY+rowH);
+    tGrad.addColorStop(0, rgba(mix(tCol, {r:0,g:0,b:0}, 0.55), 1));
+    tGrad.addColorStop(1, rgba(mix(tCol, {r:0,g:0,b:0}, 0.7), 1));
+    ctx.fillStyle = tGrad;
+    ctx.fillRect(TABLE_X, rowY, TIER_W, rowH);
+    // 左侧色条
+    ctx.fillStyle = rgba(tCol, 1);
+    ctx.fillRect(TABLE_X, rowY, 6, rowH);
+    // 级别名（大字号，文字带色）
+    ctx.save();
+    ctx.translate(TABLE_X + TIER_W/2, rowY + rowH/2);
+    // 字号自适应：名太长缩小
+    let nameFontSize = 42;
+    ctx.font = `900 ${nameFontSize}px "PingFang SC","Microsoft YaHei",sans-serif`;
+    const maxTW = TIER_W - 36;
+    while (nameFontSize > 18 && ctx.measureText(tier.name||'').width > maxTW) {
+      nameFontSize -= 2;
+      ctx.font = `900 ${nameFontSize}px "PingFang SC","Microsoft YaHei",sans-serif`;
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = rgba(tCol, 1);
+    ctx.shadowColor = rgba(tCol, 0.6).toString(); ctx.shadowBlur = 18;
+    ctx.fillText(tier.name || '', 0, 0);
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // 5.2 职业格子
+    state.classes.forEach((cls, ci) => {
+      const cellX = TABLE_X + TIER_W + ci*CELL_W;
+      const cellY = rowY;
+      // 格子背景（浅色交替 + 极淡）
+      const alt = (ti + ci) % 2 === 0;
+      ctx.fillStyle = alt ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.01)';
+      ctx.fillRect(cellX, cellY, CELL_W, rowH);
+
+      // 画卡片
+      const chars = state.cells[cellKey(tier.id, cls.id)] || [];
+      chars.forEach((ch, chi) => {
+        const colInCell = chi % CARDS_PER_ROW;
+        const rowInCell = Math.floor(chi / CARDS_PER_ROW);
+        const cardX = cellX + CELL_PAD + colInCell*(CARD_W + CARD_GAP_X);
+        const cardY = cellY + CELL_PAD + rowInCell*(CARD_H + CARD_GAP_Y);
+        const classCol = hexToRgb(cls.color || '#555');
+
+        // 卡片背景
+        roundRect(cardX, cardY, CARD_W, CARD_H, 10);
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+        ctx.stroke();
+
+        // 头像区域
+        const AV_H = CARD_H - 28;
+        roundRect(cardX + 6, cardY + 6, CARD_W - 12, AV_H, 8);
+        ctx.save();
+        ctx.clip();
+        const img = charImgMap.get(ch.id) || null;
+        if (img) {
+          // object-fit: cover；图更高（人像竖图）时顶部对齐避免头顶被裁，图更宽时水平居中
+          const ir = img.width / img.height;
+          const boxR = (CARD_W - 12) / AV_H;
+          let dw = CARD_W - 12, dh = AV_H;
+          if (ir > boxR) { // 图更宽
+            dh = AV_H; dw = dh * ir;
+          } else {          // 图更高（竖图/人像）
+            dw = CARD_W - 12; dh = dw / ir;
+          }
+          const dx = cardX + 6 + ((CARD_W-12) - dw)/2; // 水平始终居中
+          const dy = ir < boxR
+            ? cardY + 6                                // 人像竖图：顶部对齐（头顶安全不裁）
+            : cardY + 6 + (AV_H - dh)/2;               // 横图/方图：垂直居中
+          ctx.drawImage(img, dx, dy, dw, dh);
+        } else {
+          // 职业渐变 + 首字
+          const hg = ctx.createLinearGradient(cardX+6, cardY+6, cardX+CARD_W-6, cardY+6+AV_H);
+          const c1 = shadeLight(cls.color || '#555', 0.18);
+          const c2 = shadeDark(cls.color || '#555', 0.35);
+          hg.addColorStop(0, rgba(c1,1));
+          hg.addColorStop(1, rgba(c2,1));
+          ctx.fillStyle = hg;
+          ctx.fillRect(cardX + 6, cardY + 6, CARD_W - 12, AV_H);
+          ctx.fillStyle = '#fff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '900 40px "PingFang SC","Microsoft YaHei",sans-serif';
+          ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 8;
+          ctx.fillText(((ch.name||'?').trim() || '?').charAt(0), cardX + CARD_W/2, cardY + 6 + AV_H/2);
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        // 名字区（底部）：水平严格居中 + 垂直在名区中心，save/restore 避免 canvas 状态污染
+        let nameTxt = (ch.name || '').trim();
+        const NAME_BOX_TOP = cardY + 6 + AV_H;  // 头像下方即名字区顶部 = cardY + 142
+        const NAME_BOX_BOT = cardY + CARD_H;    // 卡片底部 = cardY + 164
+        const NAME_CENTER_Y = NAME_BOX_TOP + (NAME_BOX_BOT - NAME_BOX_TOP) / 2; // 名区精确中心 = cardY + 153
+        const NAME_CENTER_X = cardX + CARD_W / 2;                                // 整张卡片水平中心
+        ctx.save();
+        ctx.font = '600 13px "PingFang SC","Microsoft YaHei",sans-serif';
+        const nameMaxPx = CARD_W - 14;
+        while (nameTxt.length > 1 && ctx.measureText(nameTxt + '…').width > nameMaxPx) nameTxt = nameTxt.slice(0, -1);
+        if (nameTxt !== (ch.name||'').trim()) nameTxt += '…';
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(nameTxt || '新角色', NAME_CENTER_X, NAME_CENTER_Y);
+        ctx.restore();
+      });
+    });
+
+    rowY += rowH;
+  });
+
+  // ==============================================================
+  //  6. 整张表格描边 + 网格线
+  // ==============================================================
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = 1;
+  // 外框
+  ctx.strokeRect(TABLE_X + 0.5, TABLE_Y + 0.5, TABLE_W - 1, TABLE_H - 1);
+  // 竖直格线：TIER_W 右边 + 每职业分界
+  ctx.beginPath();
+  ctx.moveTo(TABLE_X + TIER_W + 0.5, TABLE_Y);
+  ctx.lineTo(TABLE_X + TIER_W + 0.5, TABLE_Y + TABLE_H);
+  for (let ci = 1; ci < state.classes.length; ci++) {
+    const x = TABLE_X + TIER_W + ci*CELL_W + 0.5;
+    ctx.moveTo(x, TABLE_Y); ctx.lineTo(x, TABLE_Y + TABLE_H);
+  }
+  // 横格线：HEAD_H 下边 + 每 tier 分界
+  ctx.moveTo(TABLE_X, TABLE_Y + HEAD_H + 0.5);
+  ctx.lineTo(TABLE_X + TABLE_W, TABLE_Y + HEAD_H + 0.5);
+  let accum = HEAD_H;
+  for (let ti = 1; ti < state.tiers.length; ti++) {
+    accum += tierHeights[ti-1];
+    const y = TABLE_Y + accum + 0.5;
+    ctx.moveTo(TABLE_X, y); ctx.lineTo(TABLE_X + TABLE_W, y);
+  }
+  ctx.stroke();
+
+  // ==============================================================
+  //  7. 导出 PNG 下载
+  // ==============================================================
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `${state.title || '强度榜'}_${new Date().toISOString().slice(0,10)}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    showToast('强度榜图片已导出下载', 'success');
+  } catch(e) {
+    console.warn(e);
+    showToast('导出失败：' + (e.message || e), 'error');
+  }
+}
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const obj = JSON.parse(ev.target.result);
+      if (!obj.tiers || !obj.classes || !obj.cells) throw new Error('字段缺失');
+      if (!confirm('导入会覆盖当前榜单与图库，是否继续？')) return;
+      state.title = obj.title || state.title;
+      state.tiers = obj.tiers; state.classes = obj.classes;
+      state.cells = obj.cells || {}; state.gallery = obj.gallery || [];
+      saveState(); renderAll();
+      showToast('导入成功', 'success');
+    } catch(err) { showToast('导入失败：文件格式错误', 'error'); }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+});
+function resetAll() {
+  if (!confirm('确认重置整个强度榜（级别/职业/角色/图库全部清空）？此操作不可撤销。')) return;
+  state = DEFAULT_STATE();
+  saveState(); renderAll();
+  showToast('已重置为默认模板', 'success');
+}
+
+// ============================================================
+//  标题绑定
+// ============================================================
+const titleInput = document.getElementById('titleInput');
+titleInput.value = state.title;
+document.title = state.title + ' - 动态自定义强度榜';
+titleInput.addEventListener('input', () => {
+  state.title = titleInput.value;
+  document.title = state.title + ' - 动态自定义强度榜';
+  saveState();
+});
+
+// ============================================================
+//  T 级别管理（纵向）
+// ============================================================
+function addTier(afterId = null) {
+  const newTier = { id: uid('t'), name: 'T' + (state.tiers.length + 1) };
+  if (afterId == null) {
+    state.tiers.push(newTier);
+  } else {
+    const idx = state.tiers.findIndex(t => t.id === afterId);
+    state.tiers.splice(idx + 1, 0, newTier);
+  }
+  saveState(); renderAll();
+  showToast('已新增级别：' + newTier.name, 'success');
+}
+function renameTier(id, newName) {
+  const t = state.tiers.find(x => x.id === id);
+  if (!t || !newName.trim()) return;
+  t.name = newName.trim(); saveState();
+}
+function removeTier(id) {
+  const t = state.tiers.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`删除级别「${t.name}」？该级别里的所有角色卡片也会被删除。`)) return;
+  state.tiers = state.tiers.filter(x => x.id !== id);
+  state.classes.forEach(c => delete state.cells[cellKey(id, c.id)]);
+  saveState(); renderAll();
+  showToast('已删除级别：' + t.name, 'success');
+}
+function moveTier(id, dir) {
+  const idx = state.tiers.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= state.tiers.length) return;
+  const [item] = state.tiers.splice(idx, 1);
+  state.tiers.splice(newIdx, 0, item);
+  saveState(); renderAll();
+}
+
+// ============================================================
+//  职业分类管理（横向）
+// ============================================================
+function addClass(afterId = null) {
+  const palette = DEFAULT_COLORS[state.classes.length % DEFAULT_COLORS.length];
+  const newClass = { id: uid('c'), name: '新分类' + (state.classes.length + 1), color: palette[0] };
+  if (afterId == null) state.classes.push(newClass);
+  else {
+    const idx = state.classes.findIndex(c => c.id === afterId);
+    state.classes.splice(idx + 1, 0, newClass);
+  }
+  saveState(); renderAll();
+  showToast('已新增职业分类：' + newClass.name, 'success');
+}
+function renameClass(id, newName) {
+  const c = state.classes.find(x => x.id === id);
+  if (!c || !newName.trim()) return;
+  c.name = newName.trim(); saveState();
+}
+function changeClassColor(id, color) {
+  const c = state.classes.find(x => x.id === id);
+  if (!c) return;
+  c.color = color; saveState(); renderClassesStyle();
+}
+function removeClass(id) {
+  const c = state.classes.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`删除职业分类「${c.name}」？该列的所有角色卡片也会被删除。`)) return;
+  state.classes = state.classes.filter(x => x.id !== id);
+  state.tiers.forEach(t => delete state.cells[cellKey(t.id, id)]);
+  saveState(); renderAll();
+  showToast('已删除分类：' + c.name, 'success');
+}
+
+// 动态生成表头渐变样式（每次渲染或改色时调用）
+function renderClassesStyle() {
+  let styleEl = document.getElementById('dyn-class-style');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'dyn-class-style';
+    document.head.appendChild(styleEl);
+  }
+  let css = '';
+  state.classes.forEach(cls => {
+    const dark = shade(cls.color, -30);
+    css += `
+      .class-head-${cls.id} { background: linear-gradient(135deg, ${cls.color}, ${dark}); }
+      .class-cell-${cls.id} .char-avatar:not(.custom) { background: linear-gradient(160deg, ${cls.color}, ${shade(cls.color,-50)}); }
+    `;
+  });
+  styleEl.textContent = css;
+}
+// 颜色加深/减淡辅助
+function shade(hex, pct) {
+  const c = hex.replace('#','');
+  const num = parseInt(c, 16);
+  let r = (num >> 16) + pct;
+  let g = ((num >> 8) & 0xFF) + pct;
+  let b = (num & 0xFF) + pct;
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return '#' + ((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
+}
+
+// ============================================================
+//  角色卡片 & 格子操作
+// ============================================================
+function addCharToCell(tierId, classId, image = null, name = '新角色') {
+  const arr = getCell(tierId, classId);
+  const ch = { id: uid('ch'), name, image };
+  arr.push(ch);
+  saveState(); renderCells(); // 只重渲染格子，不重建整个表以保留输入焦点
+  return ch;
+}
+function renameChar(chId, newName) {
+  if (!newName) return;
+  for (const k in state.cells) {
+    const ch = state.cells[k].find(x => x.id === chId);
+    if (ch) { ch.name = newName.trim(); saveState(); return; }
+  }
+}
+function setCharImage(chId, dataUrl) {
+  for (const k in state.cells) {
+    const ch = state.cells[k].find(x => x.id === chId);
+    if (ch) { ch.image = dataUrl; saveState(); renderCells(); return; }
+  }
+}
+function removeChar(chId) {
+  for (const k in state.cells) {
+    const idx = state.cells[k].findIndex(x => x.id === chId);
+    if (idx >= 0) {
+      state.cells[k].splice(idx, 1);
+      saveState(); renderCells(); return;
+    }
+  }
+}
+/** 查找角色在哪个格子，返回 {key, tierId, classId, idx, char} 或 null */
+function findCharCellById(chId) {
+  for (const k in state.cells) {
+    const idx = state.cells[k].findIndex(x => x.id === chId);
+    if (idx >= 0) {
+      const [tierId, classId] = k.split('|');
+      return { key: k, tierId, classId, idx, char: state.cells[k][idx] };
+    }
+  }
+  return null;
+}
+/**
+ * 把角色卡移动到目标格子 (targetTierId, targetClassId) 的数组末尾
+ * @param {string} chId                 要移动的角色 id
+ * @param {string} targetTierId         目标 T 级别 id
+ * @param {string} targetClassId        目标职业 id
+ * @param {string|null} beforeCharId    若指定：插入到此角色之前；否则追加到末尾
+ */
+function moveCharToCell(chId, targetTierId, targetClassId, beforeCharId = null) {
+  if (!chId || !targetTierId || !targetClassId) return false;
+  const src = findCharCellById(chId);
+  if (!src) return false;
+  // 同格子前后排序（无变化也要走一遍以便 beforeCharId 排序）
+  const [chObj] = state.cells[src.key].splice(src.idx, 1);
+  const dstArr = getCell(targetTierId, targetClassId);
+  let insertAt = dstArr.length;
+  if (beforeCharId) {
+    const bi = dstArr.findIndex(x => x.id === beforeCharId);
+    if (bi >= 0) insertAt = bi;
+  }
+  // 避免插入到已移除对象之前导致 index 错乱（若 dstArr === 同源数组 splice 前的数据，splice后dstArr长度-1，要小心）
+  // dstArr 就是 state.cells[targetKey] 引用，和 src 可能是同一个数组；同数组时 splice 已完成
+  dstArr.splice(insertAt, 0, chObj);
+  saveState(); renderCells();
+  return true;
+}
+
+// ============================================================
+//  图库管理
+// ============================================================
+function addImages(files) {
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  if (imgs.length === 0) { showToast('未找到图片文件', 'error'); return 0; }
+  showToast(`正在处理 ${imgs.length} 张图片（自动压缩）...`, 'info');
+  Promise.all(imgs.map(f => processImageFile(f).catch(err => { console.warn(err); return null; })))
+    .then(results => {
+      let added = 0;
+      results.forEach(res => {
+        if (!res) return;
+        const exist = state.gallery.find(g => g.name === res.name);
+        if (!exist) {
+          state.gallery.push({ id: uid('g'), name: res.name, dataUrl: res.dataUrl });
+          added++;
+        }
+      });
+      // 图库仅内存，不写 localStorage；但角色/结构变动会触发 saveState
+      renderGallery();
+      showToast(
+        added > 0
+          ? `已导入 ${added}/${imgs.length} 张图片${results.some(r=>r&&r.compressed)?'（已压缩节省空间）':''}`
+          : `图库中已存在这 ${imgs.length} 张图片`,
+        added > 0 ? 'success' : 'warning'
+      );
+    });
+  return imgs.length;
+}
+function removeGalleryImg(id) {
+  state.gallery = state.gallery.filter(g => g.id !== id);
+  saveState(); renderGallery();
+}
+function clearGallery() {
+  if (state.gallery.length === 0) { showToast('图库本来就是空的', 'error'); return; }
+  if (!confirm(`清空图库中的 ${state.gallery.length} 张图片？角色卡片中已使用的头像不会被清除。`)) return;
+  state.gallery = [];
+  saveState(); renderGallery();
+  showToast('图库已清空', 'success');
+}
+function getGalleryById(id) { return state.gallery.find(g => g.id === id); }
+
+// ============================================================
+//  渲染入口（全量）
+// ============================================================
+function renderAll() {
+  renderClassesStyle();
+  renderTableStructure();
+  renderCells();
+  renderGallery();
+  bindUploadDnD();
+}
+
+// 只重渲染表格的行+列头结构（不重建输入框）
+function renderTableStructure() {
+  const table = document.getElementById('rankingTable');
+  // 表头
+  let thead = table.querySelector('thead');
+  if (!thead) { thead = document.createElement('thead'); table.appendChild(thead); }
+  thead.innerHTML = '';
+  const headRow = document.createElement('tr');
+
+  const corner = document.createElement('th');
+  corner.className = 'class-corner';
+  corner.innerHTML = `
+    <div class="corner-wrap">
+      <!-- 上方（紧邻右侧表头）→ 横轴：职业 + 右箭头；用户要求小字 -->
+      <div class="corner-row">
+        <input type="text" class="corner-class-input"  data-corner-input="class" value="${escapeHtml(state.cornerClassLabel)}" placeholder="横轴（可编辑）">
+        <span class="corner-arrow cls">➡️</span>
+        <span class="corner-edit" data-corner-edit="class" title="点击编辑">✏️</span>
+      </div>
+      <!-- 下方（紧邻下方T级列）→ 纵轴：级别 + 下箭头；用户要求大字 -->
+      <div class="corner-row">
+        <input type="text" class="corner-tier-input"   data-corner-input="tier"  value="${escapeHtml(state.cornerTierLabel)}"  placeholder="纵轴（可编辑）">
+        <span class="corner-arrow tier">⬇️</span>
+        <span class="corner-edit" data-corner-edit="tier"  title="点击编辑">✏️</span>
+      </div>
+    </div>
+  `;
+  headRow.appendChild(corner);
+
+  state.classes.forEach(cls => {
+    const th = document.createElement('th');
+    th.className = `class-header-cell class-head-${cls.id}`;
+    th.innerHTML = `
+      <input type="text" class="class-input" value="${escapeHtml(cls.name)}" data-class-id="${cls.id}">
+      <div class="class-head-actions">
+        <input type="color" class="color-picker" value="${cls.color}" data-color-id="${cls.id}" title="更改颜色">
+        <button class="icon-btn success" data-class-add="${cls.id}" title="右侧插入新分类">＋</button>
+        <button class="icon-btn danger" data-class-del="${cls.id}" title="删除该分类" ${state.classes.length <= 1 ? 'disabled' : ''}>✕</button>
+      </div>
+    `;
+    headRow.appendChild(th);
+  });
+  // 右侧"+ 新增分类"单元格
+  const addTh = document.createElement('th');
+  addTh.className = 'add-class-cell';
+  addTh.innerHTML = `<button class="btn btn-success btn-sm" onclick="addClass()">＋ 新增职业</button>`;
+  headRow.appendChild(addTh);
+  thead.appendChild(headRow);
+
+  // 表体：级别行
+  let tbody = table.querySelector('tbody');
+  if (!tbody) { tbody = document.createElement('tbody'); table.appendChild(tbody); }
+  tbody.innerHTML = '';
+
+  state.tiers.forEach((tier, idx) => {
+    const tr = document.createElement('tr');
+    const tierTd = document.createElement('td');
+    tierTd.className = 'tier-cell';
+    // 梯度颜色：基于idx插值
+    const tierColors = ['#ff6b6b','#ffa94d','#ffd43b','#a9e34b','#74c0fc','#da77f2'];
+    const color = tierColors[idx % tierColors.length];
+    tierTd.innerHTML = `
+      <div class="tier-label-wrap">
+        <input type="text" class="tier-name-input" style="color:${color};text-shadow:0 0 18px ${color}55"
+          value="${escapeHtml(tier.name)}" data-tier-id="${tier.id}">
+        <div class="tier-actions">
+          <button class="icon-btn warn" data-tier-up="${tier.id}" title="上移" ${idx === 0 ? 'disabled' : ''}>⬆</button>
+          <button class="icon-btn warn" data-tier-down="${tier.id}" title="下移" ${idx === state.tiers.length-1 ? 'disabled' : ''}>⬇</button>
+          <button class="icon-btn success" data-tier-add="${tier.id}" title="下方插入级别">＋</button>
+          <button class="icon-btn danger" data-tier-del="${tier.id}" title="删除该级别" ${state.tiers.length <= 1 ? 'disabled' : ''}>✕</button>
+        </div>
+      </div>
+    `;
+    tr.appendChild(tierTd);
+
+    state.classes.forEach(cls => {
+      const td = document.createElement('td');
+      td.className = `class-cell class-cell-${cls.id}`;
+      td.dataset.tierId = tier.id;
+      td.dataset.classId = cls.id;
+      td.dataset.cellKey = cellKey(tier.id, cls.id);
+      td.innerHTML = `<div class="char-grid" data-grid-key="${cellKey(tier.id, cls.id)}"></div>`;
+      tr.appendChild(td);
+    });
+
+    // 末尾空白占位单元格，保持列对齐
+    const spacer = document.createElement('td');
+    spacer.style.background = 'rgba(255,255,255,0.015)';
+    spacer.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+    if (idx === state.tiers.length - 1) spacer.style.borderBottom = 'none';
+    tr.appendChild(spacer);
+
+    tbody.appendChild(tr);
+  });
+
+  // 最后"+ 新增级别"行
+  const addTierTr = document.createElement('tr');
+  addTierTr.className = 'add-tier-row';
+  const addTierTd = document.createElement('td');
+  addTierTd.colSpan = state.classes.length + 2;
+  addTierTd.innerHTML = `<button class="btn btn-warn btn-sm" onclick="addTier()">＋ 新增排榜级别 (T级别)</button>`;
+  addTierTr.appendChild(addTierTd);
+  tbody.appendChild(addTierTr);
+
+  // ---- 事件委托：表头与T级别的所有按钮/输入 ----
+  // 职业：输入改名
+  thead.querySelectorAll('.class-input').forEach(inp => {
+    inp.addEventListener('input', () => renameClass(inp.dataset.classId, inp.value));
+  });
+  thead.querySelectorAll('[data-color-id]').forEach(inp => {
+    inp.addEventListener('input', () => changeClassColor(inp.dataset.colorId, inp.value));
+  });
+  thead.querySelectorAll('[data-class-del]').forEach(btn => {
+    btn.addEventListener('click', () => removeClass(btn.dataset.classDel));
+  });
+  thead.querySelectorAll('[data-class-add]').forEach(btn => {
+    btn.addEventListener('click', () => addClass(btn.dataset.classAdd));
+  });
+  // T级别：输入改名 + 上下移/增删
+  tbody.querySelectorAll('.tier-name-input').forEach(inp => {
+    inp.addEventListener('input', () => renameTier(inp.dataset.tierId, inp.value));
+  });
+  tbody.querySelectorAll('[data-tier-up]').forEach(b => b.addEventListener('click', () => moveTier(b.dataset.tierUp, -1)));
+  tbody.querySelectorAll('[data-tier-down]').forEach(b => b.addEventListener('click', () => moveTier(b.dataset.tierDown, 1)));
+  tbody.querySelectorAll('[data-tier-del]').forEach(b => b.addEventListener('click', () => removeTier(b.dataset.tierDel)));
+  tbody.querySelectorAll('[data-tier-add]').forEach(b => b.addEventListener('click', () => addTier(b.dataset.tierAdd)));
+
+  // ---- 左上角角落：纵轴/横轴 名字编辑 ----
+  document.querySelectorAll('[data-corner-input]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      if (inp.dataset.cornerInput === 'tier')  state.cornerTierLabel  = inp.value;
+      else                                     state.cornerClassLabel = inp.value;
+      saveState();
+    });
+  });
+  document.querySelectorAll('[data-corner-edit]').forEach(ic => {
+    ic.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = ic.dataset.cornerEdit; // 'tier' or 'class'
+      const inp = document.querySelector(`[data-corner-input="${target}"]`);
+      if (inp) { inp.focus(); inp.select(); }
+    });
+  });
+
+  // 绑定格子与卡片的拖拽事件
+  bindCellDropEvents();
+}
+
+// ============================================================
+//  渲染格子内容（只重渲染卡片，不重建输入框避免焦点丢失）
+// ============================================================
+function renderCells() {
+  state.tiers.forEach(tier => {
+    state.classes.forEach(cls => {
+      const key = cellKey(tier.id, cls.id);
+      const grid = document.querySelector(`[data-grid-key="${CSS.escape(key)}"]`);
+      if (!grid) return;
+      const chars = state.cells[key] || [];
+      if (chars.length === 0) {
+        grid.innerHTML = '';
+      } else {
+        grid.innerHTML = chars.map(ch => {
+          const avatarHtml = ch.image
+            ? `<div class="char-avatar custom" style="background-image:url('${ch.image}')" data-char-img="${ch.id}"></div>`
+            : `<div class="char-avatar" data-char-img="${ch.id}">${escapeHtml((ch.name||'?').charAt(0))}</div>`;
+          return `
+            <div class="char-card" data-char-id="${ch.id}" draggable="true">
+              <button class="char-del" data-del-char="${ch.id}" title="删除角色" draggable="false">✕</button>
+              ${avatarHtml}
+              <input type="text" class="char-name-input" value="${escapeHtml(ch.name||'')}" data-rename-char="${ch.id}" placeholder="角色名" draggable="false">
+            </div>
+          `;
+        }).join('');
+
+        // 绑定卡片事件：改名 / 删除
+        grid.querySelectorAll('[data-rename-char]').forEach(inp => {
+          inp.addEventListener('input', () => renameChar(inp.dataset.renameChar, inp.value));
+          inp.addEventListener('blur',  () => { if (!inp.value.trim()) inp.value = '新角色'; });
+          // 防止在输入框内部选字时意外触发卡片拖拽
+          inp.addEventListener('dragstart', e => e.preventDefault());
+          inp.addEventListener('mousedown', e => e.stopPropagation());
+        });
+        grid.querySelectorAll('[data-del-char]').forEach(btn => {
+          btn.addEventListener('click', (e) => { e.stopPropagation(); removeChar(btn.dataset.delChar); });
+          btn.addEventListener('dragstart', e => e.preventDefault());
+        });
+
+        // 卡片：拖源(dragstart/dragend) + 落目标(dragover/drop)
+        grid.querySelectorAll('.char-card').forEach(card => {
+          const chId = card.dataset.charId;
+          // -------- 发起拖拽（角色卡移动）--------
+          card.addEventListener('dragstart', (e) => {
+            // 如果起点在 input / 删除按钮里 → 不允许发起拖拽
+            if (e.target.closest('.char-name-input, .char-del')) { e.preventDefault(); return; }
+            card.classList.add('dragging');
+            window.__dragCharId = chId;
+            try {
+              e.dataTransfer.setData('application/x-char-id', chId);
+              e.dataTransfer.setData('text/plain', chId);
+              e.dataTransfer.effectAllowed = 'move';
+              const avatar = card.querySelector('.char-avatar');
+              if (avatar) e.dataTransfer.setDragImage(avatar, 50, 60);
+            } catch(_) {}
+          });
+          card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            window.__dragCharId = null;
+            document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+          });
+
+          // -------- 拖到卡片上 --------
+          card.addEventListener('dragover', (e) => {
+            if (isGalleryDrag(e) || isFileDrag(e) || isCharDrag(e)) {
+              e.preventDefault(); e.stopPropagation();
+              card.classList.add('drop-target');
+            }
+          });
+          card.addEventListener('dragleave', (e) => {
+            if (!card.contains(e.relatedTarget)) card.classList.remove('drop-target');
+          });
+          card.addEventListener('drop', (e) => {
+            if (!(isGalleryDrag(e) || isFileDrag(e) || isCharDrag(e))) return;
+            e.preventDefault(); e.stopPropagation();
+            card.classList.remove('drop-target');
+            const targetGrid = card.closest('[data-grid-key]');
+            const [tierId, classId] = targetGrid ? targetGrid.dataset.gridKey.split('|') : [null, null];
+
+            // ===== 分支1：移动角色卡（源char移动到此卡之前，支持同格排序/跨格切换）=====
+            if (isCharDrag(e)) {
+              const srcId = window.__dragCharId || e.dataTransfer.getData('application/x-char-id') || e.dataTransfer.getData('text/plain');
+              if (srcId && srcId !== chId && tierId && classId) {
+                const srcBefore = findCharCellById(srcId);
+                moveCharToCell(srcId, tierId, classId, chId);
+                if (srcBefore) {
+                  const dst = findCharCellById(srcId);
+                  let msg = '已移动到「' + state.tiers.find(t=>t.id===dst.tierId)?.name + '×' + state.classes.find(c=>c.id===dst.classId)?.name + '」';
+                  if (srcBefore.key !== dst?.key) msg = '跨格移动：' + msg;
+                  else msg = '同格排序：' + msg;
+                  showToast(msg, 'success');
+                }
+                return;
+              }
+              if (srcId === chId) return; // 拖到自己身上，忽略
+            }
+
+            // ===== 分支2：来自图库（替换当前卡片头像）=====
+            const gId = e.dataTransfer.getData('application/x-gallery-id') || e.dataTransfer.getData('text/plain');
+            const gItem = getGalleryById(gId);
+            if (gItem) {
+              setCharImage(chId, gItem.dataUrl);
+              showToast('已替换角色头像', 'success');
+              return;
+            }
+            // ===== 分支3：外部文件拖入（替换当前卡片头像+自动入库）=====
+            if (e.dataTransfer.files && e.dataTransfer.files.length) {
+              const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+              if (file) {
+                processImageFile(file).then(res => {
+                  if (!state.gallery.find(g => g.name === file.name)) {
+                    state.gallery.push({ id: uid('g'), name: file.name, dataUrl: res.dataUrl });
+                    renderGallery();
+                  }
+                  setCharImage(chId, res.dataUrl);
+                  showToast('已替换角色头像（自动压缩）', 'success');
+                }).catch(err => { console.warn(err); showToast('读取文件失败', 'error'); });
+              }
+            }
+          });
+        });
+      }
+    });
+  });
+}
+
+// ============================================================
+//  渲染图库
+// ============================================================
+function renderGallery() {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '';
+  state.gallery.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'gallery-item';
+    div.draggable = true;
+    div.dataset.id = item.id;
+    div.title = '按住拖到强度榜格子中：新建角色；拖到已有角色上：替换头像';
+    div.innerHTML = `
+      <img src="${item.dataUrl}" alt="${escapeHtml(item.name)}" draggable="false">
+      <div class="img-name">${escapeHtml(item.name)}</div>
+      <button class="img-del" title="删除此图">✕</button>
+    `;
+    div.addEventListener('dragstart', (e) => {
+      div.classList.add('dragging');
+      e.dataTransfer.setData('application/x-gallery-id', item.id);
+      e.dataTransfer.setData('text/plain', item.id);
+      e.dataTransfer.effectAllowed = 'copy';
+      try { e.dataTransfer.setDragImage(div.querySelector('img'), 40, 50); } catch(_){}
+    });
+    div.addEventListener('dragend', () => {
+      div.classList.remove('dragging');
+      document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+    });
+    div.querySelector('.img-del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeGalleryImg(item.id);
+    });
+    grid.appendChild(div);
+  });
+  document.getElementById('galleryCount').textContent = `${state.gallery.length} 张`;
+}
+
+// ============================================================
+//  拖拽：文件上传播放区 + 全局阻止默认
+// ============================================================
+function bindUploadDnD() {
+  const section = document.getElementById('uploadSection');
+  ['dragover','dragenter'].forEach(ev => section.addEventListener(ev, (e) => {
+    if (isFileDrag(e)) { e.preventDefault(); section.classList.add('drag-over'); }
+  }));
+  ['dragleave','drop'].forEach(ev => section.addEventListener(ev, (e) => {
+    section.classList.remove('drag-over');
+  }));
+  section.addEventListener('drop', (e) => {
+    if (!isFileDrag(e) || !e.dataTransfer.files?.length) return;
+    e.preventDefault(); e.stopPropagation();
+    const n = addImages(Array.from(e.dataTransfer.files));
+  });
+
+  document.getElementById('folderInput').addEventListener('change', (e) => { addImages(Array.from(e.target.files||[])); e.target.value=''; });
+  document.getElementById('filesInput').addEventListener('change',  (e) => { addImages(Array.from(e.target.files||[])); e.target.value=''; });
+}
+
+// ============================================================
+//  格子拖拽落点（从图库拖图=新建；从角色卡拖=移动格）
+// ============================================================
+function bindCellDropEvents() {
+  document.querySelectorAll('.class-cell').forEach(cell => {
+    cell.addEventListener('dragover', (e) => {
+      if (isGalleryDrag(e) || isFileDrag(e) || isCharDrag(e)) {
+        e.preventDefault(); e.stopPropagation();
+        cell.classList.add('drop-target');
+      }
+    });
+    cell.addEventListener('dragleave', (e) => {
+      if (!cell.contains(e.relatedTarget)) cell.classList.remove('drop-target');
+    });
+    cell.addEventListener('drop', (e) => {
+      // 若直接落到子卡片上 → 子卡片（char-card.drop）自己处理：
+      //   · 拖角色卡=插入到此卡之前
+      //   · 拖图库图/外部文件=替换此卡头像
+      if (e.target.closest('.char-card')) {
+        cell.classList.remove('drop-target'); return;
+      }
+
+      const tierId = cell.dataset.tierId;
+      const classId = cell.dataset.classId;
+      if (!tierId || !classId) return;
+
+      // ===== 分支0：拖动的是角色卡（跨格切换 → 追加到目标格末尾）=====
+      if (isCharDrag(e)) {
+        e.preventDefault(); e.stopPropagation();
+        cell.classList.remove('drop-target');
+        const srcId = window.__dragCharId || e.dataTransfer.getData('application/x-char-id') || e.dataTransfer.getData('text/plain');
+        if (!srcId) return;
+        const srcBefore = findCharCellById(srcId);
+        moveCharToCell(srcId, tierId, classId, null); // 拖空格子=末尾追加
+        if (srcBefore) {
+          const dst = findCharCellById(srcId);
+          const moved = srcBefore.key !== (dst?.key);
+          showToast(
+            moved
+              ? '跨格移动：已移动到「' + state.tiers.find(t=>t.id===dst.tierId)?.name + '×' + state.classes.find(c=>c.id===dst.classId)?.name + '」'
+              : '已重排顺序',
+            'success'
+          );
+        }
+        return;
+      }
+
+      if (!(isGalleryDrag(e) || isFileDrag(e))) return;
+      e.preventDefault(); e.stopPropagation();
+      cell.classList.remove('drop-target');
+
+      const gId = e.dataTransfer.getData('application/x-gallery-id') || e.dataTransfer.getData('text/plain');
+      const gItem = getGalleryById(gId);
+      if (gItem) {
+        const guessName = guessCharName(gItem.name);
+        addCharToCell(tierId, classId, gItem.dataUrl, guessName);
+        showToast(`已创建角色：${guessName}`, 'success');
+        return;
+      }
+      // 拖入外部文件
+      if (e.dataTransfer.files && e.dataTransfer.files.length) {
+        const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
+        if (file) {
+          processImageFile(file).then(res => {
+            if (!state.gallery.find(g => g.name === file.name)) {
+              state.gallery.push({ id: uid('g'), name: file.name, dataUrl: res.dataUrl });
+              renderGallery();
+            }
+            const guessName = guessCharName(file.name);
+            addCharToCell(tierId, classId, res.dataUrl, guessName);
+            showToast(`已创建角色：${guessName}（自动压缩）`, 'success');
+          }).catch(err => { console.warn(err); showToast('读取文件失败', 'error'); });
+        }
+      }
+    });
+  });
+}
+
+// ============================================================
+//  工具函数
+// ============================================================
+/**
+ * Canvas 迭代压缩图片 dataURL：
+ *  - 先按最长边缩放到 maxEdge（默认 360px）
+ *  - 若仍大于 targetKB 则逐步降低 quality (0.85 → 0.75 → 0.65 → 0.55)
+ *  - 仍超上限，最长边再缩到 300 → 250 → 200
+ *  返回 Promise<string> (dataURL, image/jpeg)
+ */
+function compressImage(dataUrl, targetKB = 150, maxEdge = 360) {
+  return new Promise((resolve) => {
+    if (!dataUrl || !/^data:image\//.test(dataUrl)) { resolve(dataUrl); return; }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        // PNG/GIF 带透明通道 → 保留 PNG；否则一律 JPEG 压缩（体积更小）
+        const isTransparent = /^data:image\/png|^data:image\/gif|^data:image\/webp/.test(dataUrl);
+        const maxAttempts = 8;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        let edge = maxEdge;
+        let q = 0.85;
+        let lastResult = dataUrl;
+        for (let i = 0; i < maxAttempts; i++) {
+          let drawW = w, drawH = h;
+          if (w > edge || h > edge) {
+            const r = w > h ? edge / w : edge / h;
+            drawW = Math.round(w * r); drawH = Math.round(h * r);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = drawW; canvas.height = drawH;
+          const ctx = canvas.getContext('2d');
+          if (isTransparent) {
+            ctx.drawImage(img, 0, 0, drawW, drawH);
+          } else {
+            // JPEG 透明背景补白，避免黑色噪点
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, drawW, drawH);
+            ctx.drawImage(img, 0, 0, drawW, drawH);
+          }
+          const mimeType = isTransparent ? 'image/png' : 'image/jpeg';
+          const out = canvas.toDataURL(mimeType, q);
+          const sizeKB = Math.round(out.length * 2 / 1024); // UTF-16 估算
+          lastResult = out;
+          if (sizeKB <= targetKB) { break; }
+          // 降质量或缩边
+          if (q > 0.55) { q = Math.max(0.55, q - 0.1); }
+          else if (edge > 200) { edge = Math.max(200, edge - 50); q = 0.8; }
+          else { break; }
+        }
+        resolve(lastResult);
+      } catch(e) {
+        console.warn('compress failed, use original', e);
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+/** 读取 File 并做压缩，返回 Promise<{ name, dataUrl, compressed }> */
+function processImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = async (ev) => {
+      const original = ev.target.result;
+      const compressed = await compressImage(original);
+      resolve({ name: file.name, original, dataUrl: compressed, compressed: compressed.length < original.length });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function isGalleryDrag(e) {
+  return e.dataTransfer && e.dataTransfer.types &&
+    (e.dataTransfer.types.includes('application/x-gallery-id') ||
+     (e.dataTransfer.types.includes('text/plain') && !e.dataTransfer.types.includes('Files') &&
+      !e.dataTransfer.types.includes('application/x-char-id') &&
+      window.__dragCharId == null));
+}
+function isFileDrag(e) {
+  return e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files');
+}
+function isCharDrag(e) {
+  return (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('application/x-char-id'))
+      || (window.__dragCharId != null && !(e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')));
+}
+function guessCharName(filename) {
+  // 去掉扩展名和常见非中文符号，优先取中文；没有中文就取首段
+  const base = filename.replace(/\.[^.]+$/, '').replace(/[\d_ \-.\[\]()（）【】]+/g,' ').trim();
+  const cn = base.match(/[\u4e00-\u9fa5A-Za-z]+/g);
+  if (cn && cn.length) return cn[0];
+  if (base) return base.slice(0, 8);
+  return '新角色';
+}
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 全局阻止浏览器默认打开文件
+['dragover','drop'].forEach(ev => {
+  document.addEventListener(ev, (e) => {
+    if (isFileDrag(e)) {
+      e.preventDefault();
+      if (ev === 'drop') e.stopPropagation();
+    }
+  }, false);
+});
+// 全局 drop 清除高亮
+document.addEventListener('drop', () => {
+  document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+  document.getElementById('uploadSection')?.classList.remove('drag-over');
+});
+
+// Toast
+let toastTimer = null;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ============================================================
+//  启动
+// ============================================================
+renderAll();
+</script>
+</body>
+</html>
