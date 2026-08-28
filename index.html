@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>角色强度榜 - 动态自定义版</title>
+<title>排榜工具 - 动态自定义版</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -102,15 +102,51 @@
   .tier-label-wrap {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding-right: 4px;
+    position: relative; /* 为常驻铅笔图标定位 */
+    width: 100%;
   }
   .tier-name-input {
-    background: transparent; border: 1px dashed transparent;
+    background: rgba(255,255,255,0.12);              /* 默认就有填色，一眼看出是输入框 */
+    border: 2px dashed rgba(255,255,255,0.70);       /* 2px 白粗虚线，可编辑感极强 */
     color: inherit; font-size: 1.4rem; font-weight: 900;
-    text-align: center; padding: 4px 6px; border-radius: 6px; width: 100%;
+    text-align: center; padding: 5px 28px 5px 8px;   /* 右侧 28px 给铅笔腾位置 */
+    border-radius: 8px; width: 100%;
     outline: none; transition: all 0.2s;
+    cursor: text;                                    /* 文字光标提示 */
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
   }
-  .tier-name-input:hover, .tier-name-input:focus {
-    border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06);
+  .tier-name-input:hover {
+    border-color: #fff;
+    background: rgba(255,255,255,0.22);
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.12);
+  }
+  .tier-name-input:focus {
+    border-color: #fff;
+    background: rgba(255,255,255,0.25);
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.2);
+  }
+  .tier-name-input::placeholder { color: rgba(255,255,255,0.45); font-weight: 400; }
+  /* 铅笔编辑图标：默认常驻显示（不再hover后才出现） */
+  .tier-name-edit {
+    position: absolute;
+    right: 12px;
+    top: calc(50% - 12px); /* 垂直居中于输入框上半区域（下方还有tier-actions按钮） */
+    transform: translateY(-50%);
+    font-size: 0.95rem;
+    opacity: 0.95;
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(0,0,0,0.35);
+    padding: 1px 5px;
+    border-radius: 5px;
+    pointer-events: auto;
+    transition: all 0.2s;
+  }
+  .tier-name-edit:hover {
+    background: rgba(255,255,255,0.95);
+    color: #111;
+    transform: translateY(-50%) scale(1.08);
   }
   .tier-actions { display: flex; gap: 4px; justify-content: center; opacity: 0.75; }
   .tier-cell:hover .tier-actions { opacity: 1; }
@@ -139,12 +175,49 @@
     min-width: 260px; /* 保证每列至少容纳 2 张 100px 卡片并排（含 gap/padding） */
   }
   .class-input {
-    background: rgba(255,255,255,0.4); border: 1px dashed transparent;
+    background: rgba(255,255,255,0.72);              /* 默认7成白填实 —— 输入框实体感 */
+    border: 2px dashed rgba(0,0,0,0.7);              /* 2px 深色粗虚线 —— 明显可编辑 */
     color: #111; font-weight: 700; text-align: center;
-    padding: 3px 6px; border-radius: 4px; font-size: 1rem;
+    padding: 5px 32px 5px 10px;                      /* 右侧 32px 给铅笔腾出不挡字 */
+    border-radius: 7px; font-size: 1rem;
     outline: none; width: 100%;
+    cursor: text;                                    /* 文字光标 */
+    transition: all 0.2s;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1), 0 1px 0 rgba(255,255,255,0.3);
   }
-  .class-input:hover, .class-input:focus { border-color: rgba(0,0,0,0.4); background: rgba(255,255,255,0.6); }
+  .class-input:hover {
+    border-color: #111;
+    background: rgba(255,255,255,0.85);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.15), 0 0 0 3px rgba(0,0,0,0.08);
+  }
+  .class-input:focus {
+    border-color: #000;
+    background: #fff;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.15), 0 0 0 4px rgba(0,0,0,0.15);
+  }
+  .class-input::placeholder { color: rgba(0,0,0,0.5); font-weight: 400; }
+  /* 职业名铅笔编辑：常驻显示，默认不透明 */
+  .class-name-edit {
+    position: absolute;
+    right: 14px;
+    top: 12px;
+    font-size: 0.95rem;
+    opacity: 0.95;
+    color: #111;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255,255,255,0.9);
+    padding: 1px 6px;
+    border-radius: 5px;
+    pointer-events: auto;
+    transition: all 0.2s;
+    z-index: 3;
+  }
+  .class-name-edit:hover {
+    background: #111;
+    color: #fff;
+    transform: scale(1.08);
+  }
   .class-head-actions {
     display: flex; gap: 4px; justify-content: center; margin-top: 6px; opacity: 0.85;
   }
@@ -165,34 +238,56 @@
     width: 100%;
   }
   .corner-row { position: relative; width: 100%; display: flex; align-items: center; gap: 4px; }
+  /* 角落下方：级别 ⬇️ 大字输入框（对应 tier 语义 corner-tier-input 用深色背景大粗虚线） */
   .corner-tier-input {
     flex: 1;
-    background: transparent; border: 1.5px dashed rgba(255,255,255,0.28);
-    color: #fff; font-size: 1.3rem; font-weight: 700; text-align: center;
-    padding: 2px 22px 2px 4px; border-radius: 5px; cursor: text; outline: none;
+    background: rgba(255,255,255,0.14);               /* 填实白 14%，不是透明 */
+    border: 2px dashed rgba(255,255,255,0.75);        /* 2px 粗虚线 75% 白，一眼可见 */
+    color: #fff; font-size: 1.35rem; font-weight: 800; text-align: center;
+    padding: 4px 28px 4px 6px;                        /* 右侧 28px 给铅笔 */
+    border-radius: 7px; cursor: text; outline: none;
     transition: all 0.2s; min-width: 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
   }
-  .corner-tier-input:hover { border-color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.07); }
-  .corner-tier-input:focus { border-color: #fff; background: rgba(255,255,255,0.12); box-shadow: 0 0 0 3px rgba(255,255,255,0.15); }
-  .corner-tier-input::placeholder { color: rgba(255,255,255,0.45); font-weight: 400; }
+  .corner-tier-input:hover { border-color: #fff; background: rgba(255,255,255,0.24); box-shadow: 0 0 0 3px rgba(255,255,255,0.12); }
+  .corner-tier-input:focus { border-color: #fff; background: rgba(255,255,255,0.28); box-shadow: 0 0 0 4px rgba(255,255,255,0.2); }
+  .corner-tier-input::placeholder { color: rgba(255,255,255,0.5); font-weight: 400; }
+  /* 角落上方：职业 ➡️ 小字输入框（对应 class 语义 corner-class-input 中小字） */
   .corner-class-input {
     flex: 1;
-    background: transparent; border: 1.5px dashed rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.85); font-size: 1rem; font-weight: 600; text-align: center;
-    padding: 2px 22px 2px 4px; border-radius: 5px; cursor: text; outline: none;
+    background: rgba(255,255,255,0.10);               /* 填实白 10%，不是透明 */
+    border: 2px dashed rgba(255,255,255,0.55);        /* 2px 粗虚线 55% 白，明显可编辑 */
+    color: rgba(255,255,255,0.9); font-size: 1.02rem; font-weight: 700; text-align: center;
+    padding: 3px 28px 3px 6px;                        /* 右侧 28px 给铅笔 */
+    border-radius: 7px; cursor: text; outline: none;
     transition: all 0.2s; min-width: 0;
   }
-  .corner-class-input:hover { border-color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.05); }
-  .corner-class-input:focus { border-color: #fff; background: rgba(255,255,255,0.1); box-shadow: 0 0 0 3px rgba(255,255,255,0.12); }
-  .corner-class-input::placeholder { color: rgba(255,255,255,0.35); font-weight: 400; }
-  .corner-arrow { white-space: nowrap; color: rgba(255,255,255,0.7); user-select: none; }
-  .corner-arrow.tier { font-size: 0.9rem; }
-  .corner-arrow.cls  { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+  .corner-class-input:hover { border-color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.18); box-shadow: 0 0 0 3px rgba(255,255,255,0.1); }
+  .corner-class-input:focus { border-color: #fff; background: rgba(255,255,255,0.22); box-shadow: 0 0 0 4px rgba(255,255,255,0.18); }
+  .corner-class-input::placeholder { color: rgba(255,255,255,0.45); font-weight: 400; }
+  .corner-arrow { white-space: nowrap; color: rgba(255,255,255,0.75); user-select: none; }
+  .corner-arrow.tier { font-size: 0.95rem; }
+  .corner-arrow.cls  { font-size: 0.85rem; color: rgba(255,255,255,0.6); }
+  /* 角落铅笔：默认常驻可见，不透明（取消 hover 才显示的策略） */
   .corner-edit {
     position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
-    font-size: 0.8rem; opacity: 0.5; cursor: pointer; user-select: none;
+    font-size: 0.9rem;
+    opacity: 0.92;                                      /* 默认几乎不透明 */
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(0,0,0,0.4);
+    padding: 2px 6px;
+    border-radius: 5px;
+    transition: all 0.2s;
   }
-  .corner-row:hover .corner-edit { opacity: 1; color: #fff; }
+  .corner-row:hover .corner-edit,
+  .corner-edit:hover {
+    opacity: 1;
+    background: #fff;
+    color: #111;
+    transform: translateY(-50%) scale(1.08);
+  }
   .add-class-cell {
     padding: 10px; background: rgba(255,255,255,0.04); text-align: center;
     border-bottom: 2px solid rgba(255,255,255,0.15);
@@ -289,7 +384,7 @@
     min-height: 60px;
   }
   .gallery-grid:empty::before {
-    content: '暂无图片 → 请在上方上传图片文件夹或图片文件 → 然后按住图片拖到强度榜任意格子中';
+    content: '暂无图片 → 请在上方上传图片文件夹或图片文件 → 然后按住图片拖到榜中任意格子中';
     grid-column: 1 / -1; text-align: center; color: #666;
     padding: 28px 20px; font-size: 0.9rem;
     border: 2px dashed rgba(255,255,255,0.1); border-radius: 10px;
@@ -354,8 +449,51 @@
   .toast.error { border-color: #e74c3c; }
 
   .footer {
-    text-align: center; color: #666; font-size: 0.78rem;
-    margin-top: 25px; padding: 12px; line-height: 1.6;
+    text-align: center;
+    color: rgba(255,255,255,0.78);
+    font-size: 0.92rem;
+    margin-top: 28px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 16px 22px;
+    line-height: 1.85;
+    max-width: 1100px;
+    background: rgba(255,255,255,0.05);
+    border: 1.5px dashed rgba(255,255,255,0.22);
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 2px 12px rgba(0,0,0,0.25);
+    transition: all 0.2s;
+  }
+  .footer:hover {
+    border-color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.08);
+  }
+  .footer .footer-main {
+    font-weight: 500;
+    color: rgba(255,255,255,0.88);
+    letter-spacing: 0.2px;
+  }
+  .footer .footer-divider {
+    display: block;
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+    margin: 10px auto;
+  }
+  .footer .footer-contact {
+    color: rgba(255,214,102,0.95);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .footer .footer-contact .contact-id {
+    background: rgba(255,214,102,0.12);
+    border: 1px solid rgba(255,214,102,0.35);
+    padding: 2px 10px;
+    border-radius: 6px;
+    margin-left: 4px;
+    color: #ffe38a;
+    font-weight: 700;
+    letter-spacing: 0.3px;
   }
 
   @media (max-width: 900px) {
@@ -380,13 +518,13 @@
   <!-- 顶部栏 -->
   <div class="toolbar">
     <div class="title-group">
-      <div class="app-title">⚔️ 角色强度榜</div>
-      <input type="text" class="title-edit" id="titleInput" value="我的自定义强度榜" placeholder="榜单一览标题（例如：XX游戏角色强度榜）">
+      <div class="app-title">⚔️ 排榜工具</div>
+      <input type="text" class="title-edit" id="titleInput" value="我的自定义排榜（可编辑）" placeholder="榜单一览标题（例如：XX游戏角色强度榜）">
     </div>
     <div class="btn-group">
-      <button class="btn btn-success btn-sm" onclick="exportRankingImage()">🖼️ 导出图片</button>
-      <button class="btn btn-primary btn-sm" onclick="exportJson()">📤 导出数据</button>
-      <button class="btn btn-warn btn-sm" onclick="document.getElementById('importFile').click()">📥 导入数据</button>
+      <button class="btn btn-success btn-sm" onclick="exportRankingImage()">🖼️ 导出榜单PNG</button>
+      <button class="btn btn-primary btn-sm" onclick="exportJson()">📤 导出json数据</button>
+      <button class="btn btn-warn btn-sm" onclick="document.getElementById('importFile').click()">📥 导入json数据</button>
       <input type="file" id="importFile" class="hidden-input" accept="application/json">
       <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑️ 重置全部</button>
     </div>
@@ -394,7 +532,7 @@
 
   <!-- 上传区 -->
   <div class="upload-section" id="uploadSection">
-    <div class="upload-title">角色图片上传</div>
+    <div class="upload-title">排榜对象图片上传</div>
     <div class="upload-row">
       <button class="btn btn-primary btn-sm" onclick="document.getElementById('folderInput').click()">📂 选择图片文件夹</button>
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('filesInput').click()">🖼️ 选择图片文件</button>
@@ -402,13 +540,13 @@
       <input type="file" id="folderInput" class="hidden-input" webkitdirectory multiple accept="image/*">
       <input type="file" id="filesInput" class="hidden-input" multiple accept="image/*">
       <div class="upload-hint">
-        💡 <b>操作</b>：①上传图片 → 下方出现图库 → ②<b>按住图片拖到表格格子</b>里创建角色卡片；③直接双击卡片名称修改；也可以把<b>外部文件直接拖到表格格子</b>里。<br>
-        ⚙️ 级别(T)和职业(列)都可<b>直接点击文字重命名</b>，旁边有⬆⬇移动 / 🎨改色 / ✕删除按钮；也可拖图覆盖已有角色的头像。
+        💡 <b>操作</b>：①上传图片 → 下方出现图库 → ②<b>按住图片拖到表格格子</b>里创建排榜对象卡片；③直接双击卡片名称修改；也可以把<b>外部文件直接拖到表格格子</b>里。<br>
+        ⚙️ 级别(T)和职业(列)都可<b>直接点击文字重命名</b>，旁边有⬆⬇移动 / 🎨改色 / ✕删除按钮；也可拖图覆盖已有排榜对象的头像。
       </div>
     </div>
   </div>
 
-  <!-- 强度榜 -->
+  <!-- 排榜工具 -->
   <div class="table-wrap">
     <table class="ranking-table" id="rankingTable"></table>
   </div>
@@ -417,13 +555,15 @@
   <div class="gallery-section">
     <div class="gallery-header">
       <div class="gallery-title">角色图片库 <span class="gallery-count" id="galleryCount">0 张</span></div>
-      <div style="color:#888;font-size:0.8rem;">按住图片拖到强度榜任意格子 · 松手即新建角色卡片</div>
+      <div style="color:#888;font-size:0.8rem;">按住图片拖到榜单任意格子 · 松手即新建排榜对象卡片</div>
     </div>
     <div class="gallery-grid" id="galleryGrid"></div>
   </div>
 
   <div class="footer">
-    本地版动态强度榜 · 数据和图片均保存在当前浏览器 localStorage · 可使用顶部「导出数据」备份为 JSON 文件
+    <span class="footer-main">💾 本地版排榜工具 · 服务器不存任何数据 · 可使用顶部「导出数据」备份为 JSON 文件</span>
+    <span class="footer-divider"></span>
+    <span class="footer-contact">💬 若对工具有疑问，联系 taptap<span class="contact-id">@大笨象会飞oi</span></span>
   </div>
 </div>
 
@@ -442,8 +582,8 @@ const DEFAULT_COLORS = [
 ];
 const DEFAULT_STATE = () => ({
   title: '我的自定义强度榜',
-  cornerTierLabel: '级别',  // 左上角纵轴（T方向）可编辑名
-  cornerClassLabel: '职业', // 左上角横轴（列方向）可编辑名
+  cornerTierLabel: '级别',   // 左上角纵轴（T方向）可编辑名
+  cornerClassLabel: '职业',  // 左上角横轴（列方向）可编辑名
   tiers: [
     { id: uid('t'), name: 'T0' },
     { id: uid('t'), name: 'T0.5' },
@@ -452,12 +592,12 @@ const DEFAULT_STATE = () => ({
     { id: uid('t'), name: 'T2' }
   ],
   classes: [
-    { id: uid('c'), name: '战术员', color: '#2ecc71' },
-    { id: uid('c'), name: '盾卫',   color: '#f1c40f' },
-    { id: uid('c'), name: '刀锋',   color: '#9b59b6' },
-    { id: uid('c'), name: '异能者', color: '#3498db' },
-    { id: uid('c'), name: '狙击手', color: '#e74c3c' },
-    { id: uid('c'), name: '突击手', color: '#e67e22' }
+    { id: uid('c'), name: '战术员',  color: '#2ecc71' },
+    { id: uid('c'), name: '盾卫',    color: '#f1c40f' },
+    { id: uid('c'), name: '刀锋',    color: '#9b59b6' },
+    { id: uid('c'), name: '异能者',  color: '#3498db' },
+    { id: uid('c'), name: '狙击手',  color: '#e74c3c' },
+    { id: uid('c'), name: '突击手',  color: '#e67e22' }
   ],
   cells: {},   // key = "tierId|classId" => [ {id, name, image} ]
   gallery: []  // [ {id, name, dataUrl} ]
@@ -468,6 +608,61 @@ let state = loadState();
 if (state.tiers.length === 0 && state.classes.length === 0) {
   const d = DEFAULT_STATE(); state.tiers = d.tiers; state.classes = d.classes;
 }
+// 兼容修复：R13 加 placeholder 时曾把 DEFAULT_STATE 的名字污染为「T0（可编辑）/职业1（可编辑）」等占位文字，
+// 老用户本地缓存里若已落盘了这些错误名字，此处自动还原为正确默认名（保留 id/color/cells，仅修正 name 和 corner/title）。
+(function sanitizePollutedDefaults() {
+  const D = DEFAULT_STATE();
+  let dirty = false;
+  // Title：若包含"（可编辑）"则恢复为默认标题
+  if (typeof state.title === 'string' && state.title.indexOf('（可编辑）') >= 0) {
+    state.title = D.title; dirty = true;
+  }
+  // Corner 标签：若含"（可编辑）"则恢复默认
+  if (typeof state.cornerTierLabel === 'string' && state.cornerTierLabel.indexOf('（可编辑）') >= 0) {
+    state.cornerTierLabel = D.cornerTierLabel; dirty = true;
+  }
+  if (typeof state.cornerClassLabel === 'string' && state.cornerClassLabel.indexOf('（可编辑）') >= 0) {
+    state.cornerClassLabel = D.cornerClassLabel; dirty = true;
+  }
+  // T 级别：名字含"（可编辑）"占位 → 同索引用 DEFAULT 覆盖 name 仅
+  for (let i = 0; i < state.tiers.length && i < D.tiers.length; i++) {
+    const n = String(state.tiers[i].name || '');
+    if (n.indexOf('（可编辑）') >= 0) { state.tiers[i].name = D.tiers[i].name; dirty = true; }
+  }
+  // 职业：名字含"（可编辑）" 或形如 "职业1~6"（占位） → 同索引用 DEFAULT 覆盖 name，保留 id/color
+  const OCC_PAT = /^职业\d+$/;
+  for (let i = 0; i < state.classes.length && i < D.classes.length; i++) {
+    const n = String(state.classes[i].name || '');
+    if (n.indexOf('（可编辑）') >= 0 || OCC_PAT.test(n)) {
+      state.classes[i].name = D.classes[i].name; dirty = true;
+    }
+  }
+  // 二次保险：即使 state 被用户手动修过，只要 localStorage 原始 JSON 里还残留占位词，也重写一次落盘
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) || '';
+    if (raw && (raw.indexOf('（可编辑）') >= 0 || /"name"\s*:\s*"职业\d/.test(raw))) {
+      dirty = true;
+    }
+  } catch(e) {}
+  if (dirty) {
+    // 污染修复必须同步落盘，避免防抖延迟 + 防止 saveState 里的 UI 提示在页面早期挂起
+    try {
+      const toStore = {
+        title: state.title,
+        cornerTierLabel: state.cornerTierLabel,
+        cornerClassLabel: state.cornerClassLabel,
+        tiers: state.tiers,
+        classes: state.classes,
+        cells: state.cells,
+        gallery: [], // 图库不写入 localStorage
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    } catch(e) {
+      // 污染修复写盘失败时静默（后面用户操作会触发 saveState 再写）
+      console.warn('sanitize write failed', e);
+    }
+  }
+})();
 
 function uid(prefix='x') { return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function cellKey(tierId, classId) { return tierId + '|' + classId; }
@@ -481,7 +676,7 @@ function getCell(tierId, classId) {
 //  持久化 & 导入导出
 //  存储策略：localStorage 仅保存榜单结构 + 角色头像，
 //  图库（gallery）只保留在当前会话内存中，避免 5MB 配额瞬间爆掉。
-//  需要长期完整备份请使用【导出 JSON】功能。
+//  需要长期完整备份请使用【导出 JSON】功能（JSON 含完整 gallery）。
 // ============================================================
 const MAX_STORAGE_BYTES = 4.2 * 1024 * 1024; // localStorage 硬上限约 5MB，保留 0.8MB 冗余
 
@@ -491,52 +686,56 @@ function loadState() {
     if (!s) return DEFAULT_STATE();
     const obj = JSON.parse(s);
     const base = DEFAULT_STATE();
-    // 兼容旧版本：如果 localStorage 里带了 gallery 数据就保留到内存里，但不再写回
-    return Object.assign(base, obj, { gallery: obj.gallery || base.gallery });
+    // 兼容旧版本：如果 localStorage 里带了 gallery 数据就保留到内存里，但不再写回 localStorage
+    return Object.assign(base, obj, { gallery: Array.isArray(obj.gallery) ? obj.gallery : base.gallery });
   } catch(e) { console.warn(e); return DEFAULT_STATE(); }
 }
 let saveTimer = null;
+function saveStateRaw() {
+  // 同步立即写盘（不防抖），返回 {ok:true/false, error}
+  const toStore = {
+    title: state.title,
+    cornerTierLabel: state.cornerTierLabel,
+    cornerClassLabel: state.cornerClassLabel,
+    tiers: state.tiers,
+    classes: state.classes,
+    cells: state.cells,
+    gallery: [], // 图库不写入 localStorage，避免 5MB 配额爆掉
+  };
+  try {
+    const json = JSON.stringify(toStore);
+    const estBytes = json.length * 2;
+    if (estBytes > MAX_STORAGE_BYTES) {
+      showToast(
+        `榜单数据已接近存储上限 (${(estBytes/1024/1024).toFixed(1)}MB)，建议删除不常用角色或【📤导出JSON】完整备份`,
+        'warning'
+      );
+    }
+    localStorage.setItem(STORAGE_KEY, json);
+    return { ok: true };
+  } catch(e) {
+    console.warn(e);
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22 ||
+              /quota|storage|allocation|不允许|空间不足/i.test(e.message || ''))) {
+      showToast(
+        '本地存储已满！请【删除部分角色】或点击顶栏【📤导出JSON】完整备份（含图库），再【重置全部】重新导入。',
+        'error'
+      );
+    } else {
+      showToast('保存失败：' + (e.message || e), 'error');
+    }
+    return { ok: false, error: e };
+  }
+}
 function saveState() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    // 只存榜单结构（title/tiers/classes/cells），图库仅内存
-    const toStore = {
-      title: state.title,
-      tiers: state.tiers,
-      classes: state.classes,
-      cells: state.cells,
-      gallery: [], // 图库不写入 localStorage
-    };
-    try {
-      const json = JSON.stringify(toStore);
-      // UTF-16 → 字节数估算：每个代码单元 2 字节
-      const estBytes = json.length * 2;
-      if (estBytes > MAX_STORAGE_BYTES) {
-        showToast(
-          `角色头像太大已接近存储上限 (${(estBytes/1024/1024).toFixed(1)}MB)，建议删除不常用角色或导出JSON备份`,
-          'warning'
-        );
-      }
-      localStorage.setItem(STORAGE_KEY, json);
-    } catch(e) {
-      console.warn(e);
-      if (e && (e.name === 'QuotaExceededError' || e.code === 22 ||
-                /quota|storage|allocation|不允许|空间不足/i.test(e.message || ''))) {
-        showToast(
-          '本地存储已满！请【删除部分角色】或点击顶栏【📤导出JSON】完整备份（含图库），再【重置全部】重新导入。',
-          'error'
-        );
-      } else {
-        showToast('保存失败：' + (e.message || e), 'error');
-      }
-    }
-  }, 120);
+  saveTimer = setTimeout(() => { saveStateRaw(); }, 120);
 }
 function exportJson() {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `强度榜_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `排榜_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
   showToast('已导出 JSON 文件', 'success');
@@ -546,7 +745,7 @@ function exportJson() {
 // ============================================================
 async function exportRankingImage() {
   if (state.tiers.length === 0 || state.classes.length === 0) {
-    showToast('请先添加级别和职业再导出图片', 'error'); return;
+    showToast('请先添加级别和职业再导出榜单', 'error'); return;
   }
   showToast('正在生成图片，请稍候...', 'info');
 
@@ -669,7 +868,7 @@ async function exportRankingImage() {
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 14;
   ctx.font = '700 46px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
-  ctx.fillText(state.title || '角色强度榜', canvasW/2, PADDING + TITLE_H/2 - 4);
+  ctx.fillText(state.title || '排榜工具', canvasW/2, PADDING + TITLE_H/2 - 4);
   ctx.shadowBlur = 0;
   // 标题底部分隔条
   ctx.strokeStyle = 'rgba(255,255,255,0.1)';
@@ -697,8 +896,10 @@ async function exportRankingImage() {
   ctx.fillStyle = cornerGrad;
   ctx.fillRect(TABLE_X, TABLE_Y, TIER_W, HEAD_H);
   // 角字：用户最新指定 —— 上方：职业 ➡（小字，紧邻右侧表头）；下方：级别 ⬇（大字，紧邻下方T级列）
-  const clsLbl = String(state.cornerClassLabel || '职业').trim() || '职业';
-  const tierLbl = String(state.cornerTierLabel || '级别').trim() || '级别';
+  // const clsLbl = String(state.cornerClassLabel || '职业').trim() || '职业';
+  // const tierLbl = String(state.cornerTierLabel || '级别').trim() || '级别';
+  const clsLbl = String(state.cornerClassLabel).trim() || '职业';
+  const tierLbl = String(state.cornerTierLabel).trim() || '级别';
   ctx.textAlign = 'center';
   // 上方：职业（小字 15px 灰色）
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -894,9 +1095,9 @@ async function exportRankingImage() {
     const dataUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `${state.title || '强度榜'}_${new Date().toISOString().slice(0,10)}.png`;
+    a.download = `${state.title || '排榜'}_${new Date().toISOString().slice(0,10)}.png`;
     document.body.appendChild(a); a.click(); a.remove();
-    showToast('强度榜图片已导出下载', 'success');
+    showToast('排榜图片已导出下载', 'success');
   } catch(e) {
     console.warn(e);
     showToast('导出失败：' + (e.message || e), 'error');
@@ -912,8 +1113,13 @@ document.getElementById('importFile').addEventListener('change', (e) => {
       if (!obj.tiers || !obj.classes || !obj.cells) throw new Error('字段缺失');
       if (!confirm('导入会覆盖当前榜单与图库，是否继续？')) return;
       state.title = obj.title || state.title;
+      state.cornerTierLabel = obj.cornerTierLabel || state.cornerTierLabel;
+      state.cornerClassLabel = obj.cornerClassLabel || state.cornerClassLabel;
       state.tiers = obj.tiers; state.classes = obj.classes;
       state.cells = obj.cells || {}; state.gallery = obj.gallery || [];
+      // 同步标题输入框和浏览器标签页标题（renderAll 不会重建 titleInput）
+      titleInput.value = state.title;
+      document.title = (state.title || '排榜') + ' - 动态自定义排榜';
       saveState(); renderAll();
       showToast('导入成功', 'success');
     } catch(err) { showToast('导入失败：文件格式错误', 'error'); }
@@ -922,8 +1128,11 @@ document.getElementById('importFile').addEventListener('change', (e) => {
   e.target.value = '';
 });
 function resetAll() {
-  if (!confirm('确认重置整个强度榜（级别/职业/角色/图库全部清空）？此操作不可撤销。')) return;
+  if (!confirm('确认重置整个排榜（标题/级别/职业/角色/图库全部清空）？此操作不可撤销。')) return;
   state = DEFAULT_STATE();
+  // 同步重置标题输入框和浏览器标签页标题（renderAll 不会重建 titleInput）
+  titleInput.value = state.title;
+  document.title = state.title + ' - 动态自定义排榜';
   saveState(); renderAll();
   showToast('已重置为默认模板', 'success');
 }
@@ -933,10 +1142,10 @@ function resetAll() {
 // ============================================================
 const titleInput = document.getElementById('titleInput');
 titleInput.value = state.title;
-document.title = state.title + ' - 动态自定义强度榜';
+document.title = state.title + ' - 动态自定义排榜';
 titleInput.addEventListener('input', () => {
   state.title = titleInput.value;
-  document.title = state.title + ' - 动态自定义强度榜';
+  document.title = state.title + ' - 动态自定义排榜';
   saveState();
 });
 
@@ -1005,7 +1214,7 @@ function changeClassColor(id, color) {
 function removeClass(id) {
   const c = state.classes.find(x => x.id === id);
   if (!c) return;
-  if (!confirm(`删除职业分类「${c.name}」？该列的所有角色卡片也会被删除。`)) return;
+  if (!confirm(`删除职业分类「${c.name}」？该列的所有排榜卡片也会被删除。`)) return;
   state.classes = state.classes.filter(x => x.id !== id);
   state.tiers.forEach(t => delete state.cells[cellKey(t.id, id)]);
   saveState(); renderAll();
@@ -1064,6 +1273,24 @@ function setCharImage(chId, dataUrl) {
   for (const k in state.cells) {
     const ch = state.cells[k].find(x => x.id === chId);
     if (ch) { ch.image = dataUrl; saveState(); renderCells(); return; }
+  }
+}
+// 去掉文件名末尾的扩展名（.jpg/.png 等），用于图库/文件拖入替换时自动生成角色名
+function stripFileExt(name) {
+  if (!name) return '';
+  const n = String(name).trim();
+  // 去掉最后一个 .xxx 后缀（支持 .jpeg / .tar.gz 则去掉最短），对纯汉字文件名无扩展名也安全
+  return n.replace(/\.[^.]+$/, '');
+}
+// 同时替换角色头像和角色名（图库替换或文件拖入替换时用）
+function setCharImageAndName(chId, dataUrl, newName) {
+  for (const k in state.cells) {
+    const ch = state.cells[k].find(x => x.id === chId);
+    if (ch) {
+      ch.image = dataUrl;
+      if (newName && typeof newName === 'string' && newName.trim()) ch.name = newName.trim();
+      saveState(); renderCells(); return;
+    }
   }
 }
 function removeChar(chId) {
@@ -1198,7 +1425,8 @@ function renderTableStructure() {
     const th = document.createElement('th');
     th.className = `class-header-cell class-head-${cls.id}`;
     th.innerHTML = `
-      <input type="text" class="class-input" value="${escapeHtml(cls.name)}" data-class-id="${cls.id}">
+      <input type="text" class="class-input" value="${escapeHtml(cls.name)}" data-class-id="${cls.id}" placeholder="职业名（可编辑）">
+      <span class="class-name-edit" title="点击编辑职业名" data-edit-for-class="${cls.id}">✏️</span>
       <div class="class-head-actions">
         <input type="color" class="color-picker" value="${cls.color}" data-color-id="${cls.id}" title="更改颜色">
         <button class="icon-btn success" data-class-add="${cls.id}" title="右侧插入新分类">＋</button>
@@ -1229,7 +1457,8 @@ function renderTableStructure() {
     tierTd.innerHTML = `
       <div class="tier-label-wrap">
         <input type="text" class="tier-name-input" style="color:${color};text-shadow:0 0 18px ${color}55"
-          value="${escapeHtml(tier.name)}" data-tier-id="${tier.id}">
+          value="${escapeHtml(tier.name)}" data-tier-id="${tier.id}" placeholder="级别（可编辑）">
+        <span class="tier-name-edit" title="点击编辑级别名" data-edit-for-tier="${tier.id}">✏️</span>
         <div class="tier-actions">
           <button class="icon-btn warn" data-tier-up="${tier.id}" title="上移" ${idx === 0 ? 'disabled' : ''}>⬆</button>
           <button class="icon-btn warn" data-tier-down="${tier.id}" title="下移" ${idx === state.tiers.length-1 ? 'disabled' : ''}>⬇</button>
@@ -1283,6 +1512,14 @@ function renderTableStructure() {
   thead.querySelectorAll('[data-class-add]').forEach(btn => {
     btn.addEventListener('click', () => addClass(btn.dataset.classAdd));
   });
+  // 职业名铅笔图标：点击聚焦+全选
+  thead.querySelectorAll('[data-edit-for-class]').forEach(ic => {
+    ic.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const inp = thead.querySelector(`.class-input[data-class-id="${ic.dataset.editForClass}"]`);
+      if (inp) { inp.focus(); inp.select(); }
+    });
+  });
   // T级别：输入改名 + 上下移/增删
   tbody.querySelectorAll('.tier-name-input').forEach(inp => {
     inp.addEventListener('input', () => renameTier(inp.dataset.tierId, inp.value));
@@ -1291,6 +1528,14 @@ function renderTableStructure() {
   tbody.querySelectorAll('[data-tier-down]').forEach(b => b.addEventListener('click', () => moveTier(b.dataset.tierDown, 1)));
   tbody.querySelectorAll('[data-tier-del]').forEach(b => b.addEventListener('click', () => removeTier(b.dataset.tierDel)));
   tbody.querySelectorAll('[data-tier-add]').forEach(b => b.addEventListener('click', () => addTier(b.dataset.tierAdd)));
+  // T级别名铅笔图标：点击聚焦+全选
+  tbody.querySelectorAll('[data-edit-for-tier]').forEach(ic => {
+    ic.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const inp = tbody.querySelector(`.tier-name-input[data-tier-id="${ic.dataset.editForTier}"]`);
+      if (inp) { inp.focus(); inp.select(); }
+    });
+  });
 
   // ---- 左上角角落：纵轴/横轴 名字编辑 ----
   document.querySelectorAll('[data-corner-input]').forEach(inp => {
@@ -1410,25 +1655,27 @@ function renderCells() {
               if (srcId === chId) return; // 拖到自己身上，忽略
             }
 
-            // ===== 分支2：来自图库（替换当前卡片头像）=====
+            // ===== 分支2：来自图库（替换当前卡片头像+角色名）=====
             const gId = e.dataTransfer.getData('application/x-gallery-id') || e.dataTransfer.getData('text/plain');
             const gItem = getGalleryById(gId);
             if (gItem) {
-              setCharImage(chId, gItem.dataUrl);
-              showToast('已替换角色头像', 'success');
+              const newName = stripFileExt(gItem.name);
+              setCharImageAndName(chId, gItem.dataUrl, newName);
+              showToast('已替换头像和角色名 → ' + newName, 'success');
               return;
             }
-            // ===== 分支3：外部文件拖入（替换当前卡片头像+自动入库）=====
+            // ===== 分支3：外部文件拖入（替换当前卡片头像+角色名+自动入库）=====
             if (e.dataTransfer.files && e.dataTransfer.files.length) {
               const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'));
               if (file) {
+                const expectedName = stripFileExt(file.name);
                 processImageFile(file).then(res => {
                   if (!state.gallery.find(g => g.name === file.name)) {
                     state.gallery.push({ id: uid('g'), name: file.name, dataUrl: res.dataUrl });
                     renderGallery();
                   }
-                  setCharImage(chId, res.dataUrl);
-                  showToast('已替换角色头像（自动压缩）', 'success');
+                  setCharImageAndName(chId, res.dataUrl, expectedName);
+                  showToast('已替换头像和角色名 → ' + expectedName + '（自动压缩并入库）', 'success');
                 }).catch(err => { console.warn(err); showToast('读取文件失败', 'error'); });
               }
             }
@@ -1450,7 +1697,7 @@ function renderGallery() {
     div.className = 'gallery-item';
     div.draggable = true;
     div.dataset.id = item.id;
-    div.title = '按住拖到强度榜格子中：新建角色；拖到已有角色上：替换头像';
+    div.title = '按住拖到榜单格子中：新建角色；拖到已有角色上：替换头像';
     div.innerHTML = `
       <img src="${item.dataUrl}" alt="${escapeHtml(item.name)}" draggable="false">
       <div class="img-name">${escapeHtml(item.name)}</div>
